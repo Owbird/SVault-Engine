@@ -1,9 +1,8 @@
 package vault
 
 import (
-	"io/fs"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/Owbird/SVault-Engine/internal/database"
 	"github.com/Owbird/SVault-Engine/pkg/models"
@@ -23,20 +22,9 @@ func (v *Vault) Create(name, password string) error {
 		return err
 	}
 
-	bankDir := path.Join(userDir, ".svault")
+	vaultDir := filepath.Join(userDir, ".svault", name)
 
-	stat, err := os.Stat(bankDir)
-	if err != nil {
-		return err
-	}
-
-	if stat == nil {
-		os.Mkdir(bankDir, fs.FileMode(0777))
-	}
-
-	vaultDir := path.Join(bankDir, name)
-
-	err = os.Mkdir(vaultDir, 0777)
+	err = os.MkdirAll(vaultDir, 0777)
 
 	if err != nil {
 		return err
