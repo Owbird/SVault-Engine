@@ -14,34 +14,35 @@ var vaultCmd = &cobra.Command{
 	Use:   "vault",
 	Short: "Manage vaults",
 	Long:  `Manage vaults`,
-	Args:  cobra.ExactArgs(1),
+}
+
+var createCmd = &cobra.Command{
+	Use:   "create",
+	Short: "Create a new vault",
+	Long:  `Create a new vault with a specified name and password`,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		action := args[0]
-
-		if action == "create" {
-
-			name, err := cmd.Flags().GetString("name")
-			if err != nil || name == "" {
-				log.Fatalln("name required, use -n or --name")
-				return
-			}
-
-			password, err := cmd.Flags().GetString("password")
-			if err != nil || password == "" {
-				log.Fatalln("password required, use -p or --password")
-				return
-			}
-
-			v.Create(name, password)
+		name, err := cmd.Flags().GetString("name")
+		if err != nil {
+			log.Fatalf("Failed to get 'name' flag: %v", err)
 		}
 
+		password, err := cmd.Flags().GetString("password")
+		if err != nil {
+			log.Fatalf("Failed to get 'password' flag: %v", err)
+		}
+
+		v.Create(name, password)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(vaultCmd)
 
-	vaultCmd.Flags().StringP("name", "n", "", "Name of new vault")
-	vaultCmd.Flags().StringP("password", "p", "", "Password of the vault")
+	vaultCmd.AddCommand(createCmd)
+
+	createCmd.Flags().StringP("name", "n", "", "Name of new vault")
+	createCmd.Flags().StringP("password", "p", "", "Password of the vault")
+
+	createCmd.MarkFlagRequired("name")
+	createCmd.MarkFlagRequired("password")
 }
