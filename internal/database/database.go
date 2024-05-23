@@ -31,7 +31,8 @@ func NewDatabase() *Database {
 
 func (db *Database) SaveVault(vault models.Vault) {
 	doc := c.NewDocument()
-	doc.Set(vault.Name, vault)
+	doc.Set("Name", vault.Name)
+	doc.Set("Password", vault.Password)
 
 	db.Store.InsertOne("vaults", doc)
 }
