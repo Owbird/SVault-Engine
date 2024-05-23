@@ -13,15 +13,15 @@ type Database struct {
 
 func NewDatabase() *Database {
 	db, err := c.Open(".svault")
-
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	err = db.CreateCollection("vaults")
-
 	if err != nil {
-		log.Fatalln(err)
+		if err.Error() != "collection already exist" {
+			log.Fatalln(err)
+		}
 	}
 
 	return &Database{
@@ -30,10 +30,8 @@ func NewDatabase() *Database {
 }
 
 func (db *Database) SaveVault(vault models.Vault) {
-
 	doc := c.NewDocument()
 	doc.Set(vault.Name, vault)
 
 	db.Store.InsertOne("vaults", doc)
-
 }
