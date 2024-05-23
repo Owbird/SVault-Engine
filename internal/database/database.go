@@ -35,3 +35,22 @@ func (db *Database) SaveVault(vault models.Vault) {
 
 	db.Store.InsertOne("vaults", doc)
 }
+
+func (db *Database) ListVaults() ([]models.Vault, error) {
+	docs, err := db.Store.Query("vaults").FindAll()
+	if err != nil {
+		return []models.Vault{}, err
+	}
+
+	vaults := []models.Vault{}
+
+	for _, doc := range docs {
+		var v models.Vault
+
+		doc.Unmarshal(&v)
+
+		vaults = append(vaults, v)
+	}
+
+	return vaults, nil
+}

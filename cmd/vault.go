@@ -35,10 +35,25 @@ var createCmd = &cobra.Command{
 	},
 }
 
+var listCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List created vaults",
+	Long:  `List all created vaults`,
+	Run: func(cmd *cobra.Command, args []string) {
+		vaults, err := v.List()
+		if err != nil {
+			log.Fatalf("Failed to fetch vaults: %v", err)
+		}
+
+		log.Println(vaults)
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(vaultCmd)
 
 	vaultCmd.AddCommand(createCmd)
+	vaultCmd.AddCommand(listCmd)
 
 	createCmd.Flags().StringP("name", "n", "", "Name of new vault")
 	createCmd.Flags().StringP("password", "p", "", "Password of the vault")

@@ -25,7 +25,6 @@ func (v *Vault) Create(name, password string) error {
 	vaultDir := filepath.Join(userDir, ".svault", name)
 
 	err = os.MkdirAll(vaultDir, 0777)
-
 	if err != nil {
 		return err
 	}
@@ -36,5 +35,8 @@ func (v *Vault) Create(name, password string) error {
 	})
 
 	return nil
+}
 
+func (v *Vault) List() ([]models.Vault, error) {
+	return db.ListVaults()
 }
