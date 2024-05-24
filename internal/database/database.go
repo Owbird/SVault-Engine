@@ -29,12 +29,17 @@ func NewDatabase() *Database {
 	}
 }
 
-func (db *Database) SaveVault(vault models.Vault) {
+func (db *Database) SaveVault(vault models.Vault) error {
 	doc := c.NewDocument()
 	doc.Set("Name", vault.Name)
 	doc.Set("Password", vault.Password)
 
-	db.Store.InsertOne("vaults", doc)
+	_, err := db.Store.InsertOne("vaults", doc)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (db *Database) ListVaults() ([]models.Vault, error) {

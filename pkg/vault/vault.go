@@ -2,8 +2,6 @@ package vault
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/Owbird/SVault-Engine/internal/database"
 	"github.com/Owbird/SVault-Engine/pkg/models"
@@ -18,22 +16,13 @@ func NewVault() *Vault {
 }
 
 func (v *Vault) Create(name, password string) error {
-	userDir, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-
-	vaultDir := filepath.Join(userDir, ".svault", name)
-
-	err = os.MkdirAll(vaultDir, 0777)
-	if err != nil {
-		return err
-	}
-
-	db.SaveVault(models.Vault{
+	err := db.SaveVault(models.Vault{
 		Name:     name,
 		Password: password,
 	})
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
