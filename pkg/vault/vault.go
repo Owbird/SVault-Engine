@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -39,4 +40,17 @@ func (v *Vault) Create(name, password string) error {
 
 func (v *Vault) List() ([]models.Vault, error) {
 	return db.ListVaults()
+}
+
+func (v *Vault) Auth(name, pwd string) (bool, error) {
+	vault, err := db.GetVault(name)
+	if err != nil {
+		return false, err
+	}
+
+	if vault.Name == "" {
+		return false, fmt.Errorf("'%v' vault does not exist", name)
+	}
+
+	return vault.Password == pwd, nil
 }

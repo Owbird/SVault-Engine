@@ -49,15 +49,57 @@ var listCmd = &cobra.Command{
 	},
 }
 
+var addCmd = &cobra.Command{
+	Use:   "add",
+	Short: "Add file to vault",
+	Long:  `Add file to vault`,
+	Run: func(cmd *cobra.Command, args []string) {
+		file, err := cmd.Flags().GetString("file")
+		if err != nil {
+			log.Fatalf("Failed to get 'file' flag: %v", err)
+		}
+
+		vault, err := cmd.Flags().GetString("vault")
+		if err != nil {
+			log.Fatalf("Failed to get 'vault' flag: %v", err)
+		}
+
+		password, err := cmd.Flags().GetString("password")
+		if err != nil {
+			log.Fatalf("Failed to get 'password' flag: %v", err)
+		}
+
+		pwdMatch, err := v.Auth(vault, password)
+		if err != nil {
+			log.Fatalf("Failed to auth vault: %v", err)
+		}
+
+		if !pwdMatch {
+			log.Fatal("Passwords do not match")
+		}
+
+		log.Println(file, vault, password)
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(vaultCmd)
 
 	vaultCmd.AddCommand(createCmd)
 	vaultCmd.AddCommand(listCmd)
+	vaultCmd.AddCommand(addCmd)
 
 	createCmd.Flags().StringP("name", "n", "", "Name of new vault")
 	createCmd.Flags().StringP("password", "p", "", "Password of the vault")
 
 	createCmd.MarkFlagRequired("name")
 	createCmd.MarkFlagRequired("password")
+
+	addCmd.Flags().StringP("file", "f", "", "Path to the file")
+	addCmd.Flags().StringP("vault", "v", "", "Name of vault to use")
+	addCmd.Flags().StringP("password", "p", "", "Password to the vault")
+
+	addCmd.MarkFlagRequired("file")
+	addCmd.MarkFlagRequired("vault")
+	addCmd.MarkFlagRequired("password")
 }
