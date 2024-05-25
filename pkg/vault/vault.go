@@ -2,7 +2,10 @@ package vault
 
 import (
 	"fmt"
+	"log"
+	"os"
 
+	"github.com/Owbird/SVault-Engine/internal/crypto"
 	"github.com/Owbird/SVault-Engine/internal/database"
 	"github.com/Owbird/SVault-Engine/pkg/models"
 )
@@ -42,4 +45,47 @@ func (v *Vault) Auth(name, pwd string) (bool, error) {
 	}
 
 	return vault.Password == pwd, nil
+}
+
+func (v *Vault) Add(file, vault, password string) error {
+	pwdMatch, err := v.Auth(vault, password)
+	if err != nil {
+		log.Fatalf("Failed to auth vault: %v", err)
+	}
+
+	if !pwdMatch {
+		log.Fatal("Passwords do not match")
+	}
+
+	buffer, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+
+	crypto := crypto.NewCrypto()
+
+	encBuffer, err := crypto.Encrypt(buffer, password)
+	if err != nil {
+		return err
+	}
+
+	stat, err := os.Stat(file)
+	if err != nil {
+		return err
+	}
+
+	newFile := models.File{
+		Name:    file,
+		Data:    encBuffer,
+		Size:    stat.Size(),
+		Mode:    uint32(stat.Mode()),
+		ModTime: stat.ModTime(),
+	}
+
+	err = db.AddToVault(newFile)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -1,6 +1,7 @@
 package database
 
 import (
+	"errors"
 	"log"
 
 	"github.com/Owbird/SVault-Engine/pkg/models"
@@ -19,7 +20,14 @@ func NewDatabase() *Database {
 
 	err = db.CreateCollection("vaults")
 	if err != nil {
-		if err.Error() != "collection already exist" {
+		if !errors.Is(c.ErrCollectionExist, err) {
+			log.Fatalln(err)
+		}
+	}
+
+	err = db.CreateCollection("files")
+	if err != nil {
+		if !errors.Is(c.ErrCollectionExist, err) {
 			log.Fatalln(err)
 		}
 	}
@@ -78,4 +86,21 @@ func (db *Database) GetVault(vault string) (models.Vault, error) {
 	doc.Unmarshal(&v)
 
 	return v, nil
+}
+
+func (db *Database) AddToVault(file models.File) error {
+	doc := c.NewDocument()
+	doc.Set("Vault", file.Vault)
+	doc.Set("Name", file.Name)
+	doc.Set("Data", file.Data)
+	doc.Set("Size", file.Size)
+	doc.Set("Mode", file.Mode)
+	doc.Set("ModTime", file.ModTime)
+
+	_, err := db.Store.InsertOne("files", doc)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

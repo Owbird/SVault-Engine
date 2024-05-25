@@ -69,16 +69,10 @@ var addCmd = &cobra.Command{
 			log.Fatalf("Failed to get 'password' flag: %v", err)
 		}
 
-		pwdMatch, err := v.Auth(vault, password)
+		err = v.Add(file, vault, password)
 		if err != nil {
-			log.Fatalf("Failed to auth vault: %v", err)
+			log.Fatalf("Failed to add file to vault: %v", err)
 		}
-
-		if !pwdMatch {
-			log.Fatal("Passwords do not match")
-		}
-
-		log.Println(file, vault, password)
 	},
 }
 
