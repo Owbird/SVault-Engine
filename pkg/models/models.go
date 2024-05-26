@@ -3,15 +3,29 @@ package models
 import "time"
 
 type Vault struct {
-	Name     string
+	// Name is the name of the vault
+	Name string
+
+	// Password is the password to the vault
 	Password string
 }
 
 type File struct {
-	Vault   string
-	Name    string
-	Data    []byte
-	Size    int64
-	Mode    uint32
+	// Vault is the parent name of vault the file belongs to
+	Vault string
+
+	// Name is the name of the file
+	Name string
+
+	// Data is the byte content of the file
+	Data []byte
+
+	// Size is the size of the file
+	Size int64
+
+	// Mode is the file mode
+	Mode uint32
+
+	// ModTime is the modification time of the file
 	ModTime time.Time
 }

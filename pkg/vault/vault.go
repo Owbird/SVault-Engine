@@ -1,3 +1,5 @@
+// Package vault provides a way to manage vaults.
+// It allows users to create vaults, authenticate against them, and add encrypted files to those vaults.
 package vault
 
 import (
@@ -15,12 +17,15 @@ type Vault struct {
 	db *database.Database
 }
 
+// A new vault with the database initialized
 func NewVault() *Vault {
 	return &Vault{
 		db: database.NewDatabase(),
 	}
 }
 
+// Create creates a vault with a name and password
+// The vault is saved to the database
 func (v *Vault) Create(name, password string) error {
 	err := v.db.SaveVault(models.Vault{
 		Name:     name,
@@ -33,10 +38,13 @@ func (v *Vault) Create(name, password string) error {
 	return nil
 }
 
+// List retrives all the created vaults
 func (v *Vault) List() ([]models.Vault, error) {
 	return v.db.ListVaults()
 }
 
+// Auth authorizes vault access based on the
+// name of the vault and password
 func (v *Vault) Auth(name, pwd string) (bool, error) {
 	vault, err := v.db.GetVault(name)
 	if err != nil {
@@ -50,6 +58,8 @@ func (v *Vault) Auth(name, pwd string) (bool, error) {
 	return vault.Password == pwd, nil
 }
 
+// Add adds a file to the vault after a successful
+// authentication
 func (v *Vault) Add(file, vault, password string) error {
 	pwdMatch, err := v.Auth(vault, password)
 	if err != nil {

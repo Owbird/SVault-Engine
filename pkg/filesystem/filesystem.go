@@ -1,3 +1,5 @@
+// Package filesystem provides functions for the SVault VFS
+// such as mounting based on [fuse]
 package filesystem
 
 import (
@@ -12,6 +14,8 @@ type SVFileSystem struct {
 	fuse.FileSystemBase
 }
 
+// Mount mounts the vfs with .svault as the mount
+// point at the user's home directory
 func Mount() {
 	userDir, err := os.UserHomeDir()
 	if err != nil {
