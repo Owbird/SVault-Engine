@@ -10,16 +10,19 @@ import (
 	"github.com/Owbird/SVault-Engine/pkg/models"
 )
 
-var db = database.NewDatabase()
-
-type Vault models.Vault
+type Vault struct {
+	models.Vault
+	db *database.Database
+}
 
 func NewVault() *Vault {
-	return &Vault{}
+	return &Vault{
+		db: database.NewDatabase(),
+	}
 }
 
 func (v *Vault) Create(name, password string) error {
-	err := db.SaveVault(models.Vault{
+	err := v.db.SaveVault(models.Vault{
 		Name:     name,
 		Password: password,
 	})
@@ -31,11 +34,11 @@ func (v *Vault) Create(name, password string) error {
 }
 
 func (v *Vault) List() ([]models.Vault, error) {
-	return db.ListVaults()
+	return v.db.ListVaults()
 }
 
 func (v *Vault) Auth(name, pwd string) (bool, error) {
-	vault, err := db.GetVault(name)
+	vault, err := v.db.GetVault(name)
 	if err != nil {
 		return false, err
 	}
@@ -82,7 +85,7 @@ func (v *Vault) Add(file, vault, password string) error {
 		ModTime: stat.ModTime(),
 	}
 
-	err = db.AddToVault(newFile)
+	err = v.db.AddToVault(newFile)
 	if err != nil {
 		return err
 	}
