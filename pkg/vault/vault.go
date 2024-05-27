@@ -88,6 +88,7 @@ func (v *Vault) Add(file, vault, password string) error {
 	}
 
 	newFile := models.File{
+		Vault: vault,
 		Name:    file,
 		Data:    encBuffer,
 		Size:    stat.Size(),
