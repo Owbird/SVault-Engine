@@ -54,34 +54,41 @@ var fileCmd = &cobra.Command{
 	Short: "Manage vault files",
 	Long:  `Manage vault files`,
 	Run: func(cmd *cobra.Command, args []string) {
+		vault, err := cmd.Flags().GetString("vault")
+		if err != nil {
+			log.Fatalf("Failed to get 'vault' flag: %v", err)
+		}
+
+		password, err := cmd.Flags().GetString("password")
+		if err != nil {
+			log.Fatalf("Failed to get 'password' flag: %v", err)
+		}
+
 		file, err := cmd.Flags().GetString("add")
 		if err != nil {
 			log.Fatalf("Failed to get 'file' flag: %v", err)
 		}
 
 		if file != "" {
-			vault, err := cmd.Flags().GetString("vault")
-			if err != nil {
-				log.Fatalf("Failed to get 'vault' flag: %v", err)
-			}
-
-			if vault == "" {
-				log.Fatalf("Name of vault can't be blank. Add -v [name]")
-			}
-
-			password, err := cmd.Flags().GetString("password")
-			if err != nil {
-				log.Fatalf("Failed to get 'password' flag: %v", err)
-			}
-
-			if password == "" {
-				log.Fatalf("Password of vault can't be blank. Add -p [password]")
-			}
-
 			err = v.Add(file, vault, password)
 			if err != nil {
 				log.Fatalf("Failed to add file to vault: %v", err)
 			}
+		}
+
+		listFiles, err := cmd.Flags().GetBool("list")
+		if err != nil {
+			log.Fatalf("Failed to get 'list' flag: %v", err)
+		}
+
+		if listFiles {
+			files, err := v.ListFileVaults(vault, password)
+			if err != nil {
+				log.Fatalf("Failed to get vault files: %v", err)
+			}
+
+			log.Println(files)
+
 		}
 	},
 }
@@ -102,4 +109,8 @@ func init() {
 	fileCmd.Flags().StringP("add", "a", "", "Add file to the vault")
 	fileCmd.Flags().StringP("password", "p", "", "Password of the vault")
 	fileCmd.Flags().StringP("vault", "v", "", "Name of the vault")
+	fileCmd.Flags().BoolP("list", "l", false, "List files in the vault")
+
+	fileCmd.MarkFlagRequired("vault")
+	fileCmd.MarkFlagRequired("password")
 }

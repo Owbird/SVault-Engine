@@ -102,3 +102,18 @@ func (v *Vault) Add(file, vault, password string) error {
 
 	return nil
 }
+
+// ListFileVaults returns a slice of added files to the
+// specified vault
+func (v *Vault) ListFileVaults(vault, password string) ([]models.File, error) {
+	pwdMatch, err := v.Auth(vault, password)
+	if err != nil {
+		log.Fatalf("Failed to auth vault: %v", err)
+	}
+
+	if !pwdMatch {
+		log.Fatal("Passwords do not match")
+	}
+
+	return v.db.ListVaultFiles(vault)
+}

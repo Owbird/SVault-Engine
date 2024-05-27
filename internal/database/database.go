@@ -104,3 +104,25 @@ func (db *Database) AddToVault(file models.File) error {
 
 	return nil
 }
+
+func (db *Database) ListVaultFiles(vault string) ([]models.File, error) {
+	query := c.Field("Vault").Eq(vault)
+
+	docs, err := db.Store.Query("files").Where(query).FindAll()
+	if err != nil {
+		return []models.File{}, err
+	}
+
+	files := []models.File{}
+
+	for _, doc := range docs {
+
+		var file models.File
+
+		doc.Unmarshal(&file)
+
+		files = append(files, file)
+	}
+
+	return files, nil
+}
