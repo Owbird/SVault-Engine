@@ -49,29 +49,39 @@ var listCmd = &cobra.Command{
 	},
 }
 
-var addCmd = &cobra.Command{
-	Use:   "add",
-	Short: "Add file to vault",
-	Long:  `Add file to vault`,
+var fileCmd = &cobra.Command{
+	Use:   "files",
+	Short: "Manage vault files",
+	Long:  `Manage vault files`,
 	Run: func(cmd *cobra.Command, args []string) {
-		file, err := cmd.Flags().GetString("file")
+		file, err := cmd.Flags().GetString("add")
 		if err != nil {
 			log.Fatalf("Failed to get 'file' flag: %v", err)
 		}
 
-		vault, err := cmd.Flags().GetString("vault")
-		if err != nil {
-			log.Fatalf("Failed to get 'vault' flag: %v", err)
-		}
+		if file != "" {
+			vault, err := cmd.Flags().GetString("vault")
+			if err != nil {
+				log.Fatalf("Failed to get 'vault' flag: %v", err)
+			}
 
-		password, err := cmd.Flags().GetString("password")
-		if err != nil {
-			log.Fatalf("Failed to get 'password' flag: %v", err)
-		}
+			if vault == "" {
+				log.Fatalf("Name of vault can't be blank. Add -v [name]")
+			}
 
-		err = v.Add(file, vault, password)
-		if err != nil {
-			log.Fatalf("Failed to add file to vault: %v", err)
+			password, err := cmd.Flags().GetString("password")
+			if err != nil {
+				log.Fatalf("Failed to get 'password' flag: %v", err)
+			}
+
+			if password == "" {
+				log.Fatalf("Password of vault can't be blank. Add -p [password]")
+			}
+
+			err = v.Add(file, vault, password)
+			if err != nil {
+				log.Fatalf("Failed to add file to vault: %v", err)
+			}
 		}
 	},
 }
@@ -81,7 +91,7 @@ func init() {
 
 	vaultCmd.AddCommand(createCmd)
 	vaultCmd.AddCommand(listCmd)
-	vaultCmd.AddCommand(addCmd)
+	vaultCmd.AddCommand(fileCmd)
 
 	createCmd.Flags().StringP("name", "n", "", "Name of new vault")
 	createCmd.Flags().StringP("password", "p", "", "Password of the vault")
@@ -89,11 +99,7 @@ func init() {
 	createCmd.MarkFlagRequired("name")
 	createCmd.MarkFlagRequired("password")
 
-	addCmd.Flags().StringP("file", "f", "", "Path to the file")
-	addCmd.Flags().StringP("vault", "v", "", "Name of vault to use")
-	addCmd.Flags().StringP("password", "p", "", "Password to the vault")
-
-	addCmd.MarkFlagRequired("file")
-	addCmd.MarkFlagRequired("vault")
-	addCmd.MarkFlagRequired("password")
+	fileCmd.Flags().StringP("add", "a", "", "Add file to the vault")
+	fileCmd.Flags().StringP("password", "p", "", "Password of the vault")
+	fileCmd.Flags().StringP("vault", "v", "", "Name of the vault")
 }
