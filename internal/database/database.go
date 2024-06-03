@@ -3,6 +3,7 @@ package database
 import (
 	"errors"
 	"log"
+	"time"
 
 	"github.com/Owbird/SVault-Engine/pkg/models"
 	c "github.com/ostafen/clover"
@@ -41,6 +42,7 @@ func (db *Database) SaveVault(vault models.Vault) error {
 	doc := c.NewDocument()
 	doc.Set("Name", vault.Name)
 	doc.Set("Password", vault.Password)
+	doc.Set("CreatedAt", time.Now())
 
 	_, err := db.Store.InsertOne("vaults", doc)
 	if err != nil {

@@ -8,6 +8,9 @@ type Vault struct {
 
 	// Password is the password to the vault
 	Password string
+
+	// Time the vault was created. Automatically added when creating a vault
+	CreatedAt time.Time
 }
 
 type File struct {
