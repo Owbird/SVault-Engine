@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"log"
+	"os"
 
 	"github.com/Owbird/SVault-Engine/pkg/vault"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
 
@@ -45,7 +47,16 @@ var listCmd = &cobra.Command{
 			log.Fatalf("Failed to fetch vaults: %v", err)
 		}
 
-		log.Println(vaults)
+		t := table.NewWriter()
+		t.SetOutputMirror(os.Stdout)
+		t.AppendHeader(table.Row{"#", "Vault", "Created At"})
+		for index, vault := range vaults {
+			t.AppendRows([]table.Row{
+				{index + 1, vault.Name, vault.CreatedAt},
+			})
+			t.AppendSeparator()
+		}
+		t.Render()
 	},
 }
 
@@ -87,7 +98,16 @@ var fileCmd = &cobra.Command{
 				log.Fatalf("Failed to get vault files: %v", err)
 			}
 
-			log.Println(files)
+			t := table.NewWriter()
+			t.SetOutputMirror(os.Stdout)
+			t.AppendHeader(table.Row{"#", "File", "Size", "Mode", "ModTime"})
+			for index, file := range files {
+				t.AppendRows([]table.Row{
+					{index + 1, file.Name, file.Size, file.Mode, file.ModTime},
+				})
+				t.AppendSeparator()
+			}
+			t.Render()
 
 		}
 	},
