@@ -4,10 +4,9 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"log"
 	"net/http"
-	"path/filepath"
+	"os"
 )
 
 type Server struct {
@@ -36,16 +35,18 @@ func NewServer(dir string) *Server {
 func (s *Server) getFilesHandler(w http.ResponseWriter, r *http.Request) {
 	files := []File{}
 
-	err := filepath.WalkDir(s.Dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		files = append(files, File{Name: path, IsDir: d.IsDir()})
-		return nil
-	})
+	dirFiles, err := os.ReadDir(s.Dir)
 	if err != nil {
 		http.Error(w, "Failed to list files", http.StatusInternalServerError)
 		return
+	}
+
+	for _, file := range dirFiles {
+
+		files = append(files, File{
+			Name:  file.Name(),
+			IsDir: file.IsDir(),
+		})
 	}
 
 	filesJson, err := json.Marshal(files)
