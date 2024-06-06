@@ -20,6 +20,9 @@ type File struct {
 
 	// Whether it's a file or directory
 	IsDir bool `json:"is_dir"`
+
+	// Size of the file in bytes
+	Size int64 `json:"size"`
 }
 
 const (
@@ -43,9 +46,16 @@ func (s *Server) getFilesHandler(w http.ResponseWriter, r *http.Request) {
 
 	for _, file := range dirFiles {
 
+		info, err := file.Info()
+		if err != nil {
+			http.Error(w, "Failed to list files", http.StatusInternalServerError)
+			return
+		}
+
 		files = append(files, File{
 			Name:  file.Name(),
 			IsDir: file.IsDir(),
+			Size:  info.Size(),
 		})
 	}
 
