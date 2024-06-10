@@ -7,6 +7,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
+
+	"github.com/Owbird/SVault-Engine/internal/utils"
 )
 
 type Server struct {
@@ -70,13 +74,59 @@ func (s *Server) getFilesHandler(w http.ResponseWriter, r *http.Request) {
 
 // Starts starts and serves the specified dir
 func (s *Server) Start() {
+	userDir, err := utils.GetSVaultDir()
+	if err != nil {
+		log.Fatalln("Failed to get user dir")
+	}
+
+	webUIPath := filepath.Join(userDir, "web_ui")
+
+	_, err = os.Stat(webUIPath)
+	if err != nil {
+		commands := []map[string]interface{}{
+			{
+				"step":    "Cloning web UI. This will only happen once",
+				"command": "git",
+				"args":    []string{"clone", "https://github.com/Owbird/SVault-Engine-File-Server-Web.git", webUIPath},
+			},
+			{
+				"step":    "Installing dependencies",
+				"command": "npm",
+				"args":    []string{"install", "--prefix", webUIPath},
+			},
+			{
+				"step":    "Building",
+				"command": "npm",
+				"args":    []string{"run", "build", "--prefix", webUIPath},
+			},
+		}
+
+		for _, command := range commands {
+			log.Printf("[+] %s\n", command["step"])
+
+			_, err = exec.Command(command["command"].(string), command["args"].([]string)...).Output()
+			if err != nil {
+				log.Fatalln(err)
+			}
+		}
+
+	}
+
+	go (func() {
+		log.Println("[+] Running web UI")
+		_, err = exec.Command("npm", "run", "start", "--prefix", webUIPath).Output()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	})()
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", s.getFilesHandler)
 
-	log.Printf("Starting server on port %v from %v", PORT, s.Dir)
+	log.Printf("[+] Starting API on port %v from %v", PORT, s.Dir)
 
-	err := http.ListenAndServe(fmt.Sprintf(":%v", PORT), mux)
+	err = http.ListenAndServe(fmt.Sprintf(":%v", PORT), mux)
 	if err != nil {
 		log.Fatalf("Couldn't start server: %v", err)
 	}
