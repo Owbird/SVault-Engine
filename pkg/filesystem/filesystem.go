@@ -4,9 +4,8 @@ package filesystem
 
 import (
 	"log"
-	"os"
-	"path/filepath"
 
+	"github.com/Owbird/SVault-Engine/internal/utils"
 	"github.com/winfsp/cgofuse/fuse"
 )
 
@@ -17,12 +16,10 @@ type SVFileSystem struct {
 // Mount mounts the vfs with .svault as the mount
 // point at the user's home directory
 func Mount() {
-	userDir, err := os.UserHomeDir()
+	bankDir, err := utils.GetSVaultDir()
 	if err != nil {
 		log.Fatal("Could not get user directory")
 	}
-
-	bankDir := filepath.Join(userDir, ".svault")
 
 	log.Println("Mounting bank dir", bankDir)
 

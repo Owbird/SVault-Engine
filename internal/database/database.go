@@ -3,10 +3,9 @@ package database
 import (
 	"errors"
 	"log"
-	"os"
-	"path/filepath"
 	"time"
 
+	"github.com/Owbird/SVault-Engine/internal/utils"
 	"github.com/Owbird/SVault-Engine/pkg/models"
 	c "github.com/ostafen/clover"
 )
@@ -16,12 +15,12 @@ type Database struct {
 }
 
 func NewDatabase() *Database {
-	userDir, err := os.UserHomeDir()
+	userDir, err := utils.GetSVaultDir()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	db, err := c.Open(filepath.Join(userDir, ".svault"))
+	db, err := c.Open(userDir)
 	if err != nil {
 		log.Fatalln(err)
 	}
