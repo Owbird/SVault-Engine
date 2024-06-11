@@ -82,7 +82,26 @@ func buildUI() {
 func (s *Server) getFilesHandler(w http.ResponseWriter, r *http.Request) {
 	files := []File{}
 
-	dirFiles, err := os.ReadDir(s.Dir)
+	query := r.URL.Query()
+
+	var dir string
+
+	if len(query["dir"]) > 0 {
+		if filepath.Base(query["dir"][0]) == ".." {
+			http.Error(w, "Failed to list files", http.StatusInternalServerError)
+			return
+
+		}
+
+		dir = filepath.Join(s.Dir, query["dir"][0])
+
+	} else {
+		dir = s.Dir
+	}
+
+	log.Println("[+] Getting files for", dir)
+
+	dirFiles, err := os.ReadDir(dir)
 	if err != nil {
 		http.Error(w, "Failed to list files", http.StatusInternalServerError)
 		return
