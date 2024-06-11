@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/Owbird/SVault-Engine/internal/utils"
 )
@@ -33,9 +34,48 @@ const (
 	PORT = 8080
 )
 
+var webUIPath string
+
 func NewServer(dir string) *Server {
+	userDir, err := utils.GetSVaultDir()
+	if err != nil {
+		log.Fatalln("Failed to get user dir")
+	}
+
+	webUIPath = filepath.Join(userDir, "web_ui")
+
 	return &Server{
 		Dir: dir,
+	}
+}
+
+func runCmd(cmd string, args ...string) string {
+	res, err := exec.Command(cmd, args...).Output()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	return string(res)
+}
+
+func buildUI() {
+	commands := []map[string]interface{}{
+		{
+			"step":    "Installing dependencies",
+			"command": "npm",
+			"args":    []string{"install", "--prefix", webUIPath},
+		},
+		{
+			"step":    "Building",
+			"command": "npm",
+			"args":    []string{"run", "build", "--prefix", webUIPath},
+		},
+	}
+
+	for _, command := range commands {
+		log.Printf("[+] %s\n", command["step"])
+
+		runCmd(command["command"].(string), command["args"].([]string)...)
 	}
 }
 
@@ -74,50 +114,43 @@ func (s *Server) getFilesHandler(w http.ResponseWriter, r *http.Request) {
 
 // Starts starts and serves the specified dir
 func (s *Server) Start() {
-	userDir, err := utils.GetSVaultDir()
+	_, err := os.Stat(webUIPath)
 	if err != nil {
-		log.Fatalln("Failed to get user dir")
+		log.Printf("[+] Cloning web UI. This will only happen once")
+
+		runCmd("git", "https://github.com/Owbird/SVault-Engine-File-Server-Web.git", webUIPath)
+
+		buildUI()
 	}
 
-	webUIPath := filepath.Join(userDir, "web_ui")
+	res := runCmd("git", "-C", webUIPath, "show", "--summary")
 
-	_, err = os.Stat(webUIPath)
+	firstLine := strings.Split(string(res), "\n")[0]
+
+	currentCommit := strings.Split(firstLine, " ")[1]
+
+	resp, err := http.Get("https://api.github.com/repos/owbird/svault-engine-file-server-web/commits")
 	if err != nil {
-		commands := []map[string]interface{}{
-			{
-				"step":    "Cloning web UI. This will only happen once",
-				"command": "git",
-				"args":    []string{"clone", "https://github.com/Owbird/SVault-Engine-File-Server-Web.git", webUIPath},
-			},
-			{
-				"step":    "Installing dependencies",
-				"command": "npm",
-				"args":    []string{"install", "--prefix", webUIPath},
-			},
-			{
-				"step":    "Building",
-				"command": "npm",
-				"args":    []string{"run", "build", "--prefix", webUIPath},
-			},
-		}
+		log.Fatalln(err)
+	}
 
-		for _, command := range commands {
-			log.Printf("[+] %s\n", command["step"])
+	var commitsRes []map[string]interface{}
 
-			_, err = exec.Command(command["command"].(string), command["args"].([]string)...).Output()
-			if err != nil {
-				log.Fatalln(err)
-			}
-		}
+	json.NewDecoder(resp.Body).Decode(&commitsRes)
 
+	remoteCommit := commitsRes[0]["sha"]
+
+	if remoteCommit != currentCommit {
+		log.Println("[!] UI update available. Fetching updates")
+
+		runCmd("git", "-C", webUIPath, "pull")
+
+		buildUI()
 	}
 
 	go (func() {
 		log.Println("[+] Running web UI")
-		_, err = exec.Command("npm", "run", "start", "--prefix", webUIPath).Output()
-		if err != nil {
-			log.Fatalln(err)
-		}
+		runCmd("npm", "run", "start", "--prefix", webUIPath)
 	})()
 
 	mux := http.NewServeMux()
