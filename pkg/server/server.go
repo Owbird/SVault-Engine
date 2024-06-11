@@ -79,6 +79,29 @@ func buildUI() {
 	}
 }
 
+func (s *Server) downloadFileHandler(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+
+	if len(query["file"]) > 0 {
+		if filepath.Dir(query["file"][0]) == ".." || filepath.Base(query["file"][0]) == ".." {
+			http.Error(w, "Failed to download file", http.StatusInternalServerError)
+			return
+
+		}
+
+		file := filepath.Join(s.Dir, query["file"][0])
+
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%v", filepath.Base(file)))
+		w.Header().Set("Content-Type", "application/octet-stream")
+
+		http.ServeFile(w, r, file)
+		return
+	}
+
+	http.Error(w, "Failed to download file", http.StatusBadRequest)
+	return
+}
+
 func (s *Server) getFilesHandler(w http.ResponseWriter, r *http.Request) {
 	files := []File{}
 
@@ -175,6 +198,7 @@ func (s *Server) Start() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", s.getFilesHandler)
+	mux.HandleFunc("/download", s.downloadFileHandler)
 
 	log.Printf("[+] Starting API on port %v from %v", PORT, s.Dir)
 
