@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/Owbird/SVault-Engine/internal/utils"
+	"github.com/rs/cors"
 )
 
 type Server struct {
@@ -200,9 +201,22 @@ func (s *Server) Start() {
 	mux.HandleFunc("/", s.getFilesHandler)
 	mux.HandleFunc("/download", s.downloadFileHandler)
 
+	corsOpts := cors.New(cors.Options{
+		AllowedOrigins: []string{"http://localhost:3000"},
+		AllowedMethods: []string{
+			http.MethodGet,
+			http.MethodOptions,
+			http.MethodHead,
+		},
+
+		AllowedHeaders: []string{
+			"*",
+		},
+	})
+
 	log.Printf("[+] Starting API on port %v from %v", PORT, s.Dir)
 
-	err = http.ListenAndServe(fmt.Sprintf(":%v", PORT), mux)
+	err = http.ListenAndServe(fmt.Sprintf(":%v", PORT), corsOpts.Handler(mux))
 	if err != nil {
 		log.Fatalf("Couldn't start server: %v", err)
 	}
