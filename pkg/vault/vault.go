@@ -63,11 +63,11 @@ func (v *Vault) Auth(name, pwd string) (bool, error) {
 func (v *Vault) Add(file, vault, password string) error {
 	pwdMatch, err := v.Auth(vault, password)
 	if err != nil {
-		log.Fatalf("Failed to auth vault: %v", err)
+		return err
 	}
 
 	if !pwdMatch {
-		log.Fatal("Passwords do not match")
+		return fmt.Errorf("passwords do not match")
 	}
 
 	buffer, err := os.ReadFile(file)
@@ -88,7 +88,7 @@ func (v *Vault) Add(file, vault, password string) error {
 	}
 
 	newFile := models.File{
-		Vault: vault,
+		Vault:   vault,
 		Name:    file,
 		Data:    encBuffer,
 		Size:    stat.Size(),
