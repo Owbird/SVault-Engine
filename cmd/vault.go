@@ -9,8 +9,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var v = vault.NewVault()
-
 // vaultCmd represents the vault command
 var vaultCmd = &cobra.Command{
 	Use:   "vault",
@@ -33,7 +31,8 @@ var createCmd = &cobra.Command{
 			log.Fatalf("Failed to get 'password' flag: %v", err)
 		}
 
-		v.Create(name, password)
+		vault := vault.NewVault()
+		vault.Create(name, password)
 	},
 }
 
@@ -42,7 +41,8 @@ var listCmd = &cobra.Command{
 	Short: "List created vaults",
 	Long:  `List all created vaults`,
 	Run: func(cmd *cobra.Command, args []string) {
-		vaults, err := v.List()
+		vault := vault.NewVault()
+		vaults, err := vault.List()
 		if err != nil {
 			log.Fatalf("Failed to fetch vaults: %v", err)
 		}
@@ -65,6 +65,7 @@ var fileCmd = &cobra.Command{
 	Short: "Manage vault files",
 	Long:  `Manage vault files`,
 	Run: func(cmd *cobra.Command, args []string) {
+		v := vault.NewVault()
 		vault, err := cmd.Flags().GetString("vault")
 		if err != nil {
 			log.Fatalf("Failed to get 'vault' flag: %v", err)
