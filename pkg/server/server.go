@@ -161,7 +161,7 @@ func (s *Server) Start() {
 	if err != nil {
 		log.Printf("[+] Cloning web UI. This will only happen once")
 
-		runCmd("git", "https://github.com/Owbird/SVault-Engine-File-Server-Web.git", webUIPath)
+		runCmd("git", "clone", "https://github.com/Owbird/SVault-Engine-File-Server-Web.git", webUIPath)
 
 		buildUI()
 	}
