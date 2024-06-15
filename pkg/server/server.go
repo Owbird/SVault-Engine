@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/Owbird/SVault-Engine/internal/utils"
@@ -229,6 +230,11 @@ func (s *Server) Start() {
 	go (func() {
 		log.Println("[+] Running web UI")
 		runCmd(true, "npm", "run", "start", "--prefix", webUIPath)
+	})()
+
+	go (func() {
+		log.Println("[+] Setting up tunnel")
+		runCmd(true, "npx", "--yes", "localtunnel", "--port", "3000")
 	})()
 
 	mux := http.NewServeMux()
