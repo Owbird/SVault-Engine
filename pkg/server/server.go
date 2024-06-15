@@ -2,6 +2,7 @@
 package server
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -50,13 +51,47 @@ func NewServer(dir string) *Server {
 	}
 }
 
-func runCmd(cmd string, args ...string) string {
-	res, err := exec.Command(cmd, args...).Output()
+func runCmd(verbose bool, cmd string, args ...string) string {
+	command := exec.Command(cmd, args...)
+
+	stdout, err := command.StdoutPipe()
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalf("Failed to get stdout pipe: %v", err)
 	}
 
-	return string(res)
+	stderr, err := command.StderrPipe()
+	if err != nil {
+		log.Fatalf("Failed to get stderr pipe: %v", err)
+	}
+
+	if err := command.Start(); err != nil {
+		log.Fatalf("Failed to start command: %v", err)
+	}
+
+	scanAndPrint := func(pipe *bufio.Scanner, output *string) {
+		for pipe.Scan() {
+			line := pipe.Text()
+
+			if verbose {
+				fmt.Println(line)
+			}
+
+			*output += line + "\n"
+		}
+	}
+
+	var output string
+	stdoutScanner := bufio.NewScanner(stdout)
+	stderrScanner := bufio.NewScanner(stderr)
+
+	go scanAndPrint(stdoutScanner, &output)
+	go scanAndPrint(stderrScanner, &output)
+
+	if err := command.Wait(); err != nil {
+		log.Fatalf("Command finished with error: %v", err)
+	}
+
+	return output
 }
 
 func buildUI() {
@@ -76,7 +111,7 @@ func buildUI() {
 	for _, command := range commands {
 		log.Printf("[+] %s\n", command["step"])
 
-		runCmd(command["command"].(string), command["args"].([]string)...)
+		runCmd(true, command["command"].(string), command["args"].([]string)...)
 	}
 }
 
@@ -161,12 +196,12 @@ func (s *Server) Start() {
 	if err != nil {
 		log.Printf("[+] Cloning web UI. This will only happen once")
 
-		runCmd("git", "clone", "https://github.com/Owbird/SVault-Engine-File-Server-Web.git", webUIPath)
+		runCmd(true, "git", "clone", "https://github.com/Owbird/SVault-Engine-File-Server-Web.git", webUIPath)
 
 		buildUI()
 	}
 
-	res := runCmd("git", "-C", webUIPath, "show", "--summary")
+	res := runCmd(false, "git", "-C", webUIPath, "show", "--summary")
 
 	firstLine := strings.Split(string(res), "\n")[0]
 
@@ -186,14 +221,14 @@ func (s *Server) Start() {
 	if remoteCommit != currentCommit {
 		log.Println("[!] UI update available. Fetching updates")
 
-		runCmd("git", "-C", webUIPath, "pull")
+		runCmd(true, "git", "-C", webUIPath, "pull")
 
 		buildUI()
 	}
 
 	go (func() {
 		log.Println("[+] Running web UI")
-		runCmd("npm", "run", "start", "--prefix", webUIPath)
+		runCmd(true, "npm", "run", "start", "--prefix", webUIPath)
 	})()
 
 	mux := http.NewServeMux()
