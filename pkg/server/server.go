@@ -240,20 +240,19 @@ func (s *Server) Start() {
 	currentCommit := strings.Split(string(res), " ")[0]
 
 	resp, err := http.Get("https://api.github.com/repos/owbird/svault-engine-file-server-web/commits")
-	if err != nil {
-		log.Fatalln(err)
-	}
+	if err == nil && resp.StatusCode == 200 {
 
-	var commitsRes []map[string]interface{}
+		var commitsRes []map[string]interface{}
 
-	json.NewDecoder(resp.Body).Decode(&commitsRes)
+		json.NewDecoder(resp.Body).Decode(&commitsRes)
 
-	remoteCommit := commitsRes[0]["sha"].(string)[:7]
+		remoteCommit := commitsRes[0]["sha"].(string)[:7]
 
-	if remoteCommit != currentCommit {
-		s.runCmd("web_ui_version_update", "git", "-C", webUIPath, "pull")
+		if remoteCommit != currentCommit {
+			s.runCmd("web_ui_version_update", "git", "-C", webUIPath, "pull")
 
-		s.buildUI()
+			s.buildUI()
+		}
 	}
 
 	go (func() {
