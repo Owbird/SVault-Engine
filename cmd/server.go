@@ -3,6 +3,7 @@ package cmd
 import (
 	"log"
 
+	"github.com/Owbird/SVault-Engine/pkg/models"
 	"github.com/Owbird/SVault-Engine/pkg/server"
 	"github.com/spf13/cobra"
 )
@@ -24,7 +25,27 @@ var startCmd = &cobra.Command{
 			log.Fatalf("Failed to get 'dir' flag: %v", err)
 		}
 
-		server := server.NewServer(dir)
+		logCh := make(chan models.ServerLog)
+
+		defer close(logCh)
+
+		go func() {
+			for l := range logCh {
+				switch l.Type {
+				case "api_log":
+					log.Printf("[+] API Log: %v", l.Message)
+
+				case "serve_web_ui_local":
+					log.Printf("[+] Local Web Running: %v", l.Message)
+
+				case "serve_web_ui_remote":
+					log.Printf("[+] Remote Web Running: %v", l.Message)
+
+				}
+			}
+		}()
+
+		server := server.NewServer(dir, logCh)
 		server.Start()
 	},
 }

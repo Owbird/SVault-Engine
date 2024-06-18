@@ -13,12 +13,16 @@ import (
 	"strings"
 
 	"github.com/Owbird/SVault-Engine/internal/utils"
+	"github.com/Owbird/SVault-Engine/pkg/models"
 	"github.com/rs/cors"
 )
 
 type Server struct {
 	// The current directory being hosted
 	Dir string
+
+	// The channel to send the logs through
+	logCh chan models.ServerLog
 }
 
 type File struct {
@@ -38,7 +42,7 @@ const (
 
 var webUIPath string
 
-func NewServer(dir string) *Server {
+func NewServer(dir string, logCh chan models.ServerLog) *Server {
 	userDir, err := utils.GetSVaultDir()
 	if err != nil {
 		log.Fatalln("Failed to get user dir")
@@ -47,11 +51,33 @@ func NewServer(dir string) *Server {
 	webUIPath = filepath.Join(userDir, "web_ui")
 
 	return &Server{
-		Dir: dir,
+		Dir:   dir,
+		logCh: logCh,
 	}
 }
 
-func runCmd(verbose bool, cmd string, args ...string) string {
+func (s *Server) buildUI() {
+	commands := []map[string]interface{}{
+		{
+			"type":    "web_deps_installation",
+			"step":    "Installing dependencies",
+			"command": "npm",
+			"args":    []string{"install", "--prefix", webUIPath},
+		},
+		{
+			"type":    "web_ui_build",
+			"step":    "Building",
+			"command": "npm",
+			"args":    []string{"run", "build", "--prefix", webUIPath},
+		},
+	}
+
+	for _, command := range commands {
+		s.runCmd(command["type"].(string), command["command"].(string), command["args"].([]string)...)
+	}
+}
+
+func (s *Server) runCmd(logType, cmd string, args ...string) string {
 	command := exec.Command(cmd, args...)
 
 	stdout, err := command.StdoutPipe()
@@ -68,15 +94,43 @@ func runCmd(verbose bool, cmd string, args ...string) string {
 		log.Fatalf("Failed to start command: %v", err)
 	}
 
-	scanAndPrint := func(pipe *bufio.Scanner, output *string) {
+	scanOutput := func(pipe *bufio.Scanner, output *string, isErrOutput bool) {
 		for pipe.Scan() {
 			line := pipe.Text()
 
-			if verbose {
-				fmt.Println(line)
-			}
-
 			*output += line + "\n"
+
+			if !isErrOutput {
+				switch logType {
+				case "serve_web_ui_local":
+					if strings.Contains(*output, "Ready") {
+						s.logCh <- models.ServerLog{
+							Message: "http://localhost:3000",
+							Type:    logType,
+						}
+					}
+
+				case "serve_web_ui_remote":
+					url := strings.Split(*output, "your url is: ")[1]
+
+					s.logCh <- models.ServerLog{
+						Message: url,
+						Type:    logType,
+					}
+
+				default:
+					s.logCh <- models.ServerLog{
+						Message: *output,
+						Type:    logType,
+					}
+
+				}
+			} else {
+				s.logCh <- models.ServerLog{
+					Type:  logType,
+					Error: fmt.Errorf(*output),
+				}
+			}
 		}
 	}
 
@@ -84,35 +138,14 @@ func runCmd(verbose bool, cmd string, args ...string) string {
 	stdoutScanner := bufio.NewScanner(stdout)
 	stderrScanner := bufio.NewScanner(stderr)
 
-	go scanAndPrint(stdoutScanner, &output)
-	go scanAndPrint(stderrScanner, &output)
+	go scanOutput(stdoutScanner, &output, false)
+	go scanOutput(stderrScanner, &output, true)
 
 	if err := command.Wait(); err != nil {
-		log.Fatalf("Command finished with error: %v", err)
+		log.Fatalf("Command: %v finished with error: %v", command.String(), err)
 	}
 
 	return output
-}
-
-func buildUI() {
-	commands := []map[string]interface{}{
-		{
-			"step":    "Installing dependencies",
-			"command": "npm",
-			"args":    []string{"install", "--prefix", webUIPath},
-		},
-		{
-			"step":    "Building",
-			"command": "npm",
-			"args":    []string{"run", "build", "--prefix", webUIPath},
-		},
-	}
-
-	for _, command := range commands {
-		log.Printf("[+] %s\n", command["step"])
-
-		runCmd(true, command["command"].(string), command["args"].([]string)...)
-	}
 }
 
 func (s *Server) downloadFileHandler(w http.ResponseWriter, r *http.Request) {
@@ -158,7 +191,10 @@ func (s *Server) getFilesHandler(w http.ResponseWriter, r *http.Request) {
 		dir = s.Dir
 	}
 
-	log.Println("[+] Getting files for", dir)
+	s.logCh <- models.ServerLog{
+		Message: fmt.Sprintf("Getting files for %v", dir),
+		Type:    "api_log",
+	}
 
 	dirFiles, err := os.ReadDir(dir)
 	if err != nil {
@@ -194,18 +230,14 @@ func (s *Server) getFilesHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) Start() {
 	_, err := os.Stat(webUIPath)
 	if err != nil {
-		log.Printf("[+] Cloning web UI. This will only happen once")
+		s.runCmd("web_ui_download", "git", "clone", "https://github.com/Owbird/SVault-Engine-File-Server-Web.git", webUIPath)
 
-		runCmd(true, "git", "clone", "https://github.com/Owbird/SVault-Engine-File-Server-Web.git", webUIPath)
-
-		buildUI()
+		s.buildUI()
 	}
 
-	res := runCmd(false, "git", "-C", webUIPath, "show", "--summary")
+	res := s.runCmd("web_ui_version_check", "git", "-C", webUIPath, "log", "--oneline", "-n", "1")
 
-	firstLine := strings.Split(string(res), "\n")[0]
-
-	currentCommit := strings.Split(firstLine, " ")[1]
+	currentCommit := strings.Split(string(res), " ")[0]
 
 	resp, err := http.Get("https://api.github.com/repos/owbird/svault-engine-file-server-web/commits")
 	if err != nil {
@@ -216,24 +248,20 @@ func (s *Server) Start() {
 
 	json.NewDecoder(resp.Body).Decode(&commitsRes)
 
-	remoteCommit := commitsRes[0]["sha"]
+	remoteCommit := commitsRes[0]["sha"].(string)[:7]
 
 	if remoteCommit != currentCommit {
-		log.Println("[!] UI update available. Fetching updates")
+		s.runCmd("web_ui_version_update", "git", "-C", webUIPath, "pull")
 
-		runCmd(true, "git", "-C", webUIPath, "pull")
-
-		buildUI()
+		s.buildUI()
 	}
 
 	go (func() {
-		log.Println("[+] Running web UI")
-		runCmd(true, "npm", "run", "start", "--prefix", webUIPath)
+		s.runCmd("serve_web_ui_local", "npm", "run", "start", "--prefix", webUIPath)
 	})()
 
 	go (func() {
-		log.Println("[+] Setting up tunnel")
-		runCmd(true, "npx", "--yes", "localtunnel", "--port", "3000")
+		s.runCmd("serve_web_ui_remote", "npx", "--yes", "localtunnel", "--port", "3000")
 	})()
 
 	mux := http.NewServeMux()
@@ -254,7 +282,10 @@ func (s *Server) Start() {
 		},
 	})
 
-	log.Printf("[+] Starting API on port %v from %v", PORT, s.Dir)
+	s.logCh <- models.ServerLog{
+		Message: fmt.Sprintf("Starting API on port %v from %v", PORT, s.Dir),
+		Type:    "api_log",
+	}
 
 	err = http.ListenAndServe(fmt.Sprintf(":%v", PORT), corsOpts.Handler(mux))
 	if err != nil {
