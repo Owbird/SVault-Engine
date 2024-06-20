@@ -269,7 +269,7 @@ func (s *Server) Start() {
 	mux.HandleFunc("/download", s.downloadFileHandler)
 
 	corsOpts := cors.New(cors.Options{
-		AllowedOrigins: []string{"https://*.loca.it", "http://localhost:3000", "http://localhost:3001"},
+		AllowedOrigins: []string{"https://*.loca.lt", "http://localhost:3000", "http://localhost:3001"},
 		AllowedMethods: []string{
 			http.MethodGet,
 			http.MethodOptions,
