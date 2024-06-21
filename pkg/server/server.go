@@ -4,6 +4,7 @@ package server
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -77,21 +78,21 @@ func (s *Server) buildUI() {
 	}
 }
 
-func (s *Server) runCmd(logType, cmd string, args ...string) string {
+func (s *Server) runCmd(logType, cmd string, args ...string) (string, error) {
 	command := exec.Command(cmd, args...)
 
 	stdout, err := command.StdoutPipe()
 	if err != nil {
-		log.Fatalf("Failed to get stdout pipe: %v", err)
+		return "", err
 	}
 
 	stderr, err := command.StderrPipe()
 	if err != nil {
-		log.Fatalf("Failed to get stderr pipe: %v", err)
+		return "", err
 	}
 
 	if err := command.Start(); err != nil {
-		log.Fatalf("Failed to start command: %v", err)
+		return "", err
 	}
 
 	scanOutput := func(pipe *bufio.Scanner, output *string, isErrOutput bool) {
@@ -142,10 +143,10 @@ func (s *Server) runCmd(logType, cmd string, args ...string) string {
 	go scanOutput(stderrScanner, &output, true)
 
 	if err := command.Wait(); err != nil {
-		log.Fatalf("Command: %v finished with error: %v", command.String(), err)
+		return "", errors.New(output)
 	}
 
-	return output
+	return output, nil
 }
 
 func (s *Server) downloadFileHandler(w http.ResponseWriter, r *http.Request) {
@@ -230,12 +231,27 @@ func (s *Server) getFilesHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) Start() {
 	_, err := os.Stat(webUIPath)
 	if err != nil {
-		s.runCmd("web_ui_download", "git", "clone", "https://github.com/Owbird/SVault-Engine-File-Server-Web.git", webUIPath)
+		_, err = s.runCmd("web_ui_download", "git", "clone", "https://github.com/Owbird/SVault-Engine-File-Server-Web.git", webUIPath)
+		if err != nil {
+			s.logCh <- models.ServerLog{
+				Error: err,
+				Type:  "web_ui_download",
+			}
+			return
 
+		}
 		s.buildUI()
 	}
 
-	res := s.runCmd("web_ui_version_check", "git", "-C", webUIPath, "log", "--oneline", "-n", "1")
+	res, err := s.runCmd("web_ui_version_check", "git", "-C", webUIPath, "log", "--oneline", "-n", "1")
+	if err != nil {
+		s.logCh <- models.ServerLog{
+			Error: err,
+			Type:  "web_ui_version_check",
+		}
+
+		return
+	}
 
 	currentCommit := strings.Split(string(res), " ")[0]
 
@@ -249,18 +265,38 @@ func (s *Server) Start() {
 		remoteCommit := commitsRes[0]["sha"].(string)[:7]
 
 		if remoteCommit != currentCommit {
-			s.runCmd("web_ui_version_update", "git", "-C", webUIPath, "pull")
+			_, err := s.runCmd("web_ui_version_update", "git", "-C", webUIPath, "pull")
+			if err != nil {
+				s.logCh <- models.ServerLog{
+					Error: err,
+					Type:  "web_ui_version_update",
+				}
+
+				return
+			}
 
 			s.buildUI()
 		}
 	}
 
 	go (func() {
-		s.runCmd("serve_web_ui_local", "npm", "run", "start", "--prefix", webUIPath)
+		_, err := s.runCmd("serve_web_ui_local", "npm", "run", "start", "--prefix", webUIPath)
+		if err != nil {
+			s.logCh <- models.ServerLog{
+				Error: err,
+				Type:  "serve_web_ui_local",
+			}
+		}
 	})()
 
 	go (func() {
-		s.runCmd("serve_web_ui_remote", "npx", "--yes", "localtunnel", "--port", "3000")
+		_, err := s.runCmd("serve_web_ui_remote", "npx", "--yes", "localtunnel", "--port", "3000")
+		if err != nil {
+			s.logCh <- models.ServerLog{
+				Error: err,
+				Type:  "serve_web_ui_remote",
+			}
+		}
 	})()
 
 	mux := http.NewServeMux()
@@ -288,6 +324,9 @@ func (s *Server) Start() {
 
 	err = http.ListenAndServe(fmt.Sprintf(":%v", PORT), corsOpts.Handler(mux))
 	if err != nil {
-		log.Fatalf("Couldn't start server: %v", err)
+		s.logCh <- models.ServerLog{
+			Error: err,
+			Type:  "api_log",
+		}
 	}
 }
