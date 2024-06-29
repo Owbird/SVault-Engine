@@ -10,22 +10,13 @@ import (
 	c "github.com/ostafen/clover"
 )
 
-type Database struct {
-	Store *c.DB
-}
+type Database struct{}
 
 func NewDatabase() *Database {
-	userDir, err := utils.GetSVaultDir()
-	if err != nil {
-		log.Fatalln(err)
-	}
+	db := OpenDb()
+	defer db.Close()
 
-	db, err := c.Open(userDir)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	err = db.CreateCollection("vaults")
+	err := db.CreateCollection("vaults")
 	if err != nil {
 		if !errors.Is(c.ErrCollectionExist, err) {
 			log.Fatalln(err)
@@ -39,18 +30,33 @@ func NewDatabase() *Database {
 		}
 	}
 
-	return &Database{
-		Store: db,
+	return &Database{}
+}
+
+func OpenDb() *c.DB {
+	userDir, err := utils.GetSVaultDir()
+	if err != nil {
+		log.Fatalln(err)
 	}
+
+	store, err := c.Open(userDir)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	return store
 }
 
 func (db *Database) SaveVault(vault models.Vault) error {
+	store := OpenDb()
+	defer store.Close()
+
 	doc := c.NewDocument()
 	doc.Set("Name", vault.Name)
 	doc.Set("Password", vault.Password)
 	doc.Set("CreatedAt", time.Now())
 
-	_, err := db.Store.InsertOne("vaults", doc)
+	_, err := store.InsertOne("vaults", doc)
 	if err != nil {
 		return err
 	}
@@ -59,7 +65,10 @@ func (db *Database) SaveVault(vault models.Vault) error {
 }
 
 func (db *Database) ListVaults() ([]models.Vault, error) {
-	docs, err := db.Store.Query("vaults").FindAll()
+	store := OpenDb()
+	defer store.Close()
+
+	docs, err := store.Query("vaults").FindAll()
 	if err != nil {
 		return []models.Vault{}, err
 	}
@@ -80,7 +89,10 @@ func (db *Database) ListVaults() ([]models.Vault, error) {
 func (db *Database) GetVault(vault string) (models.Vault, error) {
 	query := c.Field("Name").Eq(vault)
 
-	doc, err := db.Store.Query("vaults").Where(query).FindFirst()
+	store := OpenDb()
+	defer store.Close()
+
+	doc, err := store.Query("vaults").Where(query).FindFirst()
 	if err != nil {
 		return models.Vault{}, err
 	}
@@ -105,7 +117,10 @@ func (db *Database) AddToVault(file models.File) error {
 	doc.Set("Mode", file.Mode)
 	doc.Set("ModTime", file.ModTime)
 
-	_, err := db.Store.InsertOne("files", doc)
+	store := OpenDb()
+	defer store.Close()
+
+	_, err := store.InsertOne("files", doc)
 	if err != nil {
 		return err
 	}
@@ -116,7 +131,10 @@ func (db *Database) AddToVault(file models.File) error {
 func (db *Database) ListVaultFiles(vault string) ([]models.File, error) {
 	query := c.Field("Vault").Eq(vault)
 
-	docs, err := db.Store.Query("files").Where(query).FindAll()
+	store := OpenDb()
+	defer store.Close()
+
+	docs, err := store.Query("files").Where(query).FindAll()
 	if err != nil {
 		return []models.File{}, err
 	}
