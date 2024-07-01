@@ -64,7 +64,7 @@ func (svfs *SVFileSystem) Readdir(path string,
 		}
 
 		for _, file := range files {
-			fill(filepath.Join(path, file.Name), &fuse.Stat_t{
+			fill(filepath.Base(file.Name), &fuse.Stat_t{
 				Size: file.Size,
 				Mode: file.Mode,
 				Mtim: fuse.NewTimespec(file.ModTime),
