@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"log"
+	"sync"
 
 	"github.com/Owbird/SVault-Engine/pkg/models"
 	"github.com/Owbird/SVault-Engine/pkg/server"
@@ -29,6 +30,9 @@ var startCmd = &cobra.Command{
 
 		defer close(logCh)
 
+		wg := sync.WaitGroup{}
+
+		wg.Add(1)
 		go func() {
 			for l := range logCh {
 				switch l.Type {
@@ -46,7 +50,11 @@ var startCmd = &cobra.Command{
 		}()
 
 		server := server.NewServer(dir, logCh)
-		server.Start()
+
+		wg.Add(1)
+		go server.Start()
+
+		wg.Wait()
 	},
 }
 
