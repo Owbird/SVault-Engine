@@ -16,7 +16,15 @@ import (
 	"github.com/Owbird/SVault-Engine/internal/utils"
 	"github.com/Owbird/SVault-Engine/pkg/models"
 	"github.com/rs/cors"
+	"github.com/spf13/viper"
 )
+
+type Config struct {
+	Server struct {
+		// The server label to be displayed
+		Name string `json:"name"`
+	} `json:"server"`
+}
 
 type Server struct {
 	// The current directory being hosted
@@ -24,6 +32,9 @@ type Server struct {
 
 	// The channel to send the logs through
 	logCh chan models.ServerLog
+
+	// The server TOML configuration
+	Config Config
 }
 
 type File struct {
@@ -51,9 +62,31 @@ func NewServer(dir string, logCh chan models.ServerLog) *Server {
 
 	webUIPath = filepath.Join(userDir, "web_ui")
 
+	viper.SetConfigName("svault")
+	viper.SetConfigType("toml")
+
+	viper.AddConfigPath(userDir)
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	viper.SetDefault("server.name", fmt.Sprintf("%v's Server", hostname))
+
+	err = viper.ReadInConfig()
+	if err != nil {
+		viper.SafeWriteConfig()
+	}
+
+	var config Config
+
+	viper.Unmarshal(&config)
+
 	return &Server{
-		Dir:   dir,
-		logCh: logCh,
+		Dir:    dir,
+		logCh:  logCh,
+		Config: config,
 	}
 }
 
@@ -169,6 +202,17 @@ func (s *Server) downloadFileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Error(w, "Failed to download file", http.StatusBadRequest)
+	return
+}
+
+func (s *Server) getServerConfig(w http.ResponseWriter, _ *http.Request) {
+	configJson, err := json.Marshal(s.Config)
+	if err != nil {
+		http.Error(w, "Failed to get server", http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(configJson)
 	return
 }
 
@@ -302,6 +346,7 @@ func (s *Server) Start() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", s.getFilesHandler)
+	mux.HandleFunc("/config", s.getServerConfig)
 	mux.HandleFunc("/download", s.downloadFileHandler)
 
 	corsOpts := cors.New(cors.Options{
