@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -23,6 +24,9 @@ type Config struct {
 	Server struct {
 		// The server label to be displayed
 		Name string `json:"name"`
+
+		// Should uploads be allowed
+		AllowUploads bool `json:"allow_uploads"`
 	} `json:"server"`
 }
 
@@ -73,6 +77,7 @@ func NewServer(dir string, logCh chan models.ServerLog) *Server {
 	}
 
 	viper.SetDefault("server.name", fmt.Sprintf("%v's Server", hostname))
+	viper.SetDefault("server.allowUploads", false)
 
 	err = viper.ReadInConfig()
 	if err != nil {
@@ -180,6 +185,41 @@ func (s *Server) runCmd(logType, cmd string, args ...string) (string, error) {
 	}
 
 	return output, nil
+}
+
+func (s *Server) getFileUpload(w http.ResponseWriter, r *http.Request) {
+	files := r.MultipartForm.File["file"]
+
+	uploadDir := r.FormValue("uploadDir")
+
+	for _, fileHeader := range files {
+		file, err := fileHeader.Open()
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+
+		uploadDir := filepath.Join(s.Dir, uploadDir, fileHeader.Filename)
+
+		dst, err := os.Create(uploadDir)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer dst.Close()
+
+		if _, err := io.Copy(dst, file); err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+	}
+
+	return
 }
 
 func (s *Server) downloadFileHandler(w http.ResponseWriter, r *http.Request) {
@@ -348,6 +388,7 @@ func (s *Server) Start() {
 	mux.HandleFunc("/", s.getFilesHandler)
 	mux.HandleFunc("/config", s.getServerConfig)
 	mux.HandleFunc("/download", s.downloadFileHandler)
+	mux.HandleFunc("/upload", s.getFileUpload)
 
 	corsOpts := cors.New(cors.Options{
 		AllowedOrigins: []string{"https://*.loca.lt", "http://localhost:3000", "http://localhost:3001"},
