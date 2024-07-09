@@ -237,6 +237,11 @@ func (s *Server) downloadFileHandler(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%v", filepath.Base(file)))
 		w.Header().Set("Content-Type", "application/octet-stream")
 
+		s.logCh <- models.ServerLog{
+			Message: fmt.Sprintf("Downloading %v", file),
+			Type:    "api_log",
+		}
+
 		http.ServeFile(w, r, file)
 		return
 	}
