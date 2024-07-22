@@ -95,7 +95,7 @@ func NewServer(dir string, logCh chan models.ServerLog) *Server {
 	}
 }
 
-func (s *Server) buildUI() {
+func (s *Server) buildUI() (string, error) {
 	commands := []map[string]interface{}{
 		{
 			"type":    "web_deps_installation",
@@ -112,8 +112,12 @@ func (s *Server) buildUI() {
 	}
 
 	for _, command := range commands {
-		s.runCmd(command["type"].(string), command["command"].(string), command["args"].([]string)...)
+		if _, err := s.runCmd(command["type"].(string), command["command"].(string), command["args"].([]string)...); err != nil {
+			return command["type"].(string), err
+		}
 	}
+
+	return "", nil
 }
 
 func (s *Server) runCmd(logType, cmd string, args ...string) (string, error) {
@@ -329,43 +333,51 @@ func (s *Server) Start() {
 			return
 
 		}
-		s.buildUI()
+	} else {
+		res, err := s.runCmd("web_ui_version_check", "git", "-C", webUIPath, "log", "--oneline", "-n", "1")
+		if err != nil {
+			s.logCh <- models.ServerLog{
+				Error: err,
+				Type:  "web_ui_version_check",
+			}
+
+			return
+		}
+
+		currentCommit := strings.Split(string(res), " ")[0]
+
+		resp, err := http.Get("https://api.github.com/repos/owbird/svault-engine-file-server-web/commits")
+		if err == nil && resp.StatusCode == 200 {
+
+			var commitsRes []map[string]interface{}
+
+			json.NewDecoder(resp.Body).Decode(&commitsRes)
+
+			remoteCommit := commitsRes[0]["sha"].(string)[:7]
+
+			if remoteCommit != currentCommit {
+				_, err := s.runCmd("web_ui_version_update", "git", "-C", webUIPath, "pull")
+				if err != nil {
+					s.logCh <- models.ServerLog{
+						Error: err,
+						Type:  "web_ui_version_update",
+					}
+
+					return
+				}
+
+			}
+		}
 	}
 
-	res, err := s.runCmd("web_ui_version_check", "git", "-C", webUIPath, "log", "--oneline", "-n", "1")
-	if err != nil {
+	if cmd, err := s.buildUI(); err != nil {
 		s.logCh <- models.ServerLog{
 			Error: err,
-			Type:  "web_ui_version_check",
+			Type:  cmd,
 		}
 
 		return
-	}
 
-	currentCommit := strings.Split(string(res), " ")[0]
-
-	resp, err := http.Get("https://api.github.com/repos/owbird/svault-engine-file-server-web/commits")
-	if err == nil && resp.StatusCode == 200 {
-
-		var commitsRes []map[string]interface{}
-
-		json.NewDecoder(resp.Body).Decode(&commitsRes)
-
-		remoteCommit := commitsRes[0]["sha"].(string)[:7]
-
-		if remoteCommit != currentCommit {
-			_, err := s.runCmd("web_ui_version_update", "git", "-C", webUIPath, "pull")
-			if err != nil {
-				s.logCh <- models.ServerLog{
-					Error: err,
-					Type:  "web_ui_version_update",
-				}
-
-				return
-			}
-
-			s.buildUI()
-		}
 	}
 
 	go (func() {

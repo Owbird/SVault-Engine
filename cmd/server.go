@@ -37,14 +37,36 @@ var startCmd = &cobra.Command{
 			for l := range logCh {
 				switch l.Type {
 				case "api_log":
-					log.Printf("[+] API Log: %v", l.Message)
-
+					if l.Error != nil {
+						log.Printf("[!] API Error: %v", l.Error)
+					} else {
+						log.Printf("[+] API Log: %v", l.Message)
+					}
 				case "serve_web_ui_local":
-					log.Printf("[+] Local Web Running: %v", l.Message)
+					if l.Error != nil {
+						log.Printf("[!] Local Web Run Error: %v", l.Error)
+					} else {
+						log.Printf("[+] Local Web Running: %v", l.Message)
+					}
 
 				case "serve_web_ui_remote":
-					log.Printf("[+] Remote Web Running: %v", l.Message)
-
+					if l.Error != nil {
+						log.Printf("[!] Remote Web Run Error: %v", l.Error)
+					} else {
+						log.Printf("[+] Remote Web Running: %v", l.Message)
+					}
+				case "web_deps_installation":
+					if l.Error != nil {
+						log.Printf("[!] Web Dependencies Installation Error: %v", l.Error)
+					} else {
+						log.Printf("[+] Web Dependencies Installed: %v", l.Message)
+					}
+				case "web_ui_build":
+					if l.Error != nil {
+						log.Printf("[!] Web UI Build error: %v", l.Error)
+					} else {
+						log.Printf("[+] Web UI Built: %v", l.Message)
+					}
 				}
 			}
 		}()
