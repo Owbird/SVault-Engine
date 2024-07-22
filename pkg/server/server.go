@@ -161,6 +161,14 @@ func (s *Server) runCmd(logType, cmd string, args ...string) (string, error) {
 						Type:    logType,
 					}
 
+				case "web_ui_build":
+					if strings.Contains(*output, "(Dynamic)  server-rendered on demand") {
+						s.logCh <- models.ServerLog{
+							Message: "Frontend build successful",
+							Type:    logType,
+						}
+					}
+
 				default:
 					s.logCh <- models.ServerLog{
 						Message: *output,
