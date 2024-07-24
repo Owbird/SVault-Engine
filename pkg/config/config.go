@@ -59,5 +59,5 @@ func (ac *AppConfig) GetSeverConfig() *config.ServerConfig {
 
 // Save saves the server configuration to svault.toml
 func (ac *AppConfig) Save() error {
-	return viper.SafeWriteConfig()
+	return viper.WriteConfig()
 }
