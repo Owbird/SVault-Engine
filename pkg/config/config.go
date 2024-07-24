@@ -13,7 +13,7 @@ import (
 // AppConfig holds the server configuration
 type AppConfig struct {
 	// The server configuration
-	Server *config.ServerConfig `json:"server"`
+	server *config.ServerConfig
 }
 
 // Gets the app configuration from
@@ -44,20 +44,26 @@ func NewAppConfig() *AppConfig {
 	}
 
 	config := &AppConfig{
-		Server: config.NewServerConfig(),
+		server: config.NewServerConfig(),
 	}
 
-	viper.Unmarshal(&config)
+	config.server.SetName(viper.GetString("server.name"))
+	config.server.SetAllowUploads(viper.GetBool("server.allowUploads"))
 
 	return config
 }
 
 // GetSeverConfig returns the server configuration
 func (ac *AppConfig) GetSeverConfig() *config.ServerConfig {
-	return ac.Server
+	return ac.server
 }
 
 // Save saves the server configuration to svault.toml
 func (ac *AppConfig) Save() error {
 	return viper.WriteConfig()
+}
+
+// ToJson returns the server configuration as json
+func (ac *AppConfig) ToJson() map[string]interface{} {
+	return viper.AllSettings()
 }

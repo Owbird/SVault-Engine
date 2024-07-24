@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	serverConfig "github.com/Owbird/SVault-Engine/internal/config"
 	"github.com/Owbird/SVault-Engine/internal/utils"
 	"github.com/Owbird/SVault-Engine/pkg/config"
 	"github.com/Owbird/SVault-Engine/pkg/models"
@@ -27,9 +26,6 @@ type Server struct {
 
 	// The channel to send the logs through
 	logCh chan models.ServerLog
-
-	// The server configuration
-	Config serverConfig.ServerConfig
 }
 
 type File struct {
@@ -50,16 +46,13 @@ const (
 var webUIPath string
 
 func NewServer(dir string, logCh chan models.ServerLog) *Server {
-	serverConfig := config.NewAppConfig().GetSeverConfig()
-
 	userDir, _ := utils.GetSVaultDir()
 
 	webUIPath = filepath.Join(userDir, "web_ui")
 
 	return &Server{
-		Dir:    dir,
-		logCh:  logCh,
-		Config: *serverConfig,
+		Dir:   dir,
+		logCh: logCh,
 	}
 }
 
@@ -231,7 +224,9 @@ func (s *Server) downloadFileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getServerConfig(w http.ResponseWriter, _ *http.Request) {
-	configJson, err := json.Marshal(s.Config)
+	serverConfig := config.NewAppConfig().ToJson()["server"]
+
+	configJson, err := json.Marshal(serverConfig)
 	if err != nil {
 		http.Error(w, "Failed to get server", http.StatusInternalServerError)
 		return

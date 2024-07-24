@@ -2,10 +2,10 @@ package config
 
 type ServerConfig struct {
 	// The server label to be displayed
-	Name string `json:"name"`
+	name string
 
 	// Should uploads be allowed
-	AllowUploads bool `json:"allow_uploads"`
+	allowUploads bool
 }
 
 func NewServerConfig() *ServerConfig {
@@ -15,13 +15,23 @@ func NewServerConfig() *ServerConfig {
 // SetName sets the server name
 // Defaults to machine hostname
 func (sc *ServerConfig) SetName(name string) *ServerConfig {
-	sc.Name = name
+	sc.name = name
 	return sc
 }
 
 // SetAllowUploads sets if uploads are allowed
 // Defaults to false
 func (sc *ServerConfig) SetAllowUploads(allowUploads bool) *ServerConfig {
-	sc.AllowUploads = allowUploads
+	sc.allowUploads = allowUploads
 	return sc
+}
+
+// GetName returns the server name
+func (sc *ServerConfig) GetName() string {
+	return sc.name
+}
+
+// GetAllowUploads returns if uploads are allowed
+func (sc *ServerConfig) GetAllowUploads() bool {
+	return sc.allowUploads
 }
