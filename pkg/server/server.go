@@ -14,21 +14,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	serverConfig "github.com/Owbird/SVault-Engine/internal/config"
 	"github.com/Owbird/SVault-Engine/internal/utils"
+	"github.com/Owbird/SVault-Engine/pkg/config"
 	"github.com/Owbird/SVault-Engine/pkg/models"
 	"github.com/rs/cors"
-	"github.com/spf13/viper"
 )
-
-type Config struct {
-	Server struct {
-		// The server label to be displayed
-		Name string `json:"name"`
-
-		// Should uploads be allowed
-		AllowUploads bool `json:"allow_uploads"`
-	} `json:"server"`
-}
 
 type Server struct {
 	// The current directory being hosted
@@ -37,8 +28,8 @@ type Server struct {
 	// The channel to send the logs through
 	logCh chan models.ServerLog
 
-	// The server TOML configuration
-	Config Config
+	// The server configuration
+	Config serverConfig.ServerConfig
 }
 
 type File struct {
@@ -59,39 +50,16 @@ const (
 var webUIPath string
 
 func NewServer(dir string, logCh chan models.ServerLog) *Server {
-	userDir, err := utils.GetSVaultDir()
-	if err != nil {
-		log.Fatalln("Failed to get user dir")
-	}
+	serverConfig := config.NewAppConfig().GetSeverConfig()
+
+	userDir, _ := utils.GetSVaultDir()
 
 	webUIPath = filepath.Join(userDir, "web_ui")
-
-	viper.SetConfigName("svault")
-	viper.SetConfigType("toml")
-
-	viper.AddConfigPath(userDir)
-
-	hostname, err := os.Hostname()
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	viper.SetDefault("server.name", fmt.Sprintf("%v's Server", hostname))
-	viper.SetDefault("server.allowUploads", false)
-
-	err = viper.ReadInConfig()
-	if err != nil {
-		viper.SafeWriteConfig()
-	}
-
-	var config Config
-
-	viper.Unmarshal(&config)
 
 	return &Server{
 		Dir:    dir,
 		logCh:  logCh,
-		Config: config,
+		Config: *serverConfig,
 	}
 }
 
