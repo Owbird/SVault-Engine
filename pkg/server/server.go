@@ -161,6 +161,14 @@ func (s *Server) runCmd(logType, cmd string, args ...string) (string, error) {
 }
 
 func (s *Server) getFileUpload(w http.ResponseWriter, r *http.Request) {
+	// TODO: Make limit configurable
+	// 100MB Limit
+	if err := r.ParseMultipartForm(100 << 20); err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	files := r.MultipartForm.File["file"]
 
 	uploadDir := r.FormValue("uploadDir")
