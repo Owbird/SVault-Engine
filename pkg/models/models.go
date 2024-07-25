@@ -2,6 +2,18 @@ package models
 
 import "time"
 
+const (
+	// File Server Log Types
+	API_LOG               = "api_log"
+	WEB_UI_DOWNLOAD       = "web_ui_download"
+	WEB_UI_VERSION_CHECK  = "web_ui_version_check"
+	WEB_UI_VERSION_UPDATE = "web_ui_version_update"
+	WEB_DEPS_INSTALLATION = "web_deps_installation"
+	WEB_UI_BUILD          = "web_ui_build"
+	SERVE_WEB_UI_LOCAL    = "serve_web_ui_local"
+	SERVE_WEB_UI_REMOTE   = "serve_web_ui_remote"
+)
+
 type Vault struct {
 	// Name is the name of the vault
 	Name string

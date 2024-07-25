@@ -36,32 +36,32 @@ var startCmd = &cobra.Command{
 		go func() {
 			for l := range logCh {
 				switch l.Type {
-				case "api_log":
+				case models.API_LOG:
 					if l.Error != nil {
 						log.Printf("[!] API Error: %v", l.Error)
 					} else {
 						log.Printf("[+] API Log: %v", l.Message)
 					}
-				case "serve_web_ui_local":
+				case models.SERVE_WEB_UI_LOCAL:
 					if l.Error != nil {
 						log.Printf("[!] Local Web Run Error: %v", l.Error)
 					} else {
 						log.Printf("[+] Local Web Running: %v", l.Message)
 					}
 
-				case "serve_web_ui_remote":
+				case models.SERVE_WEB_UI_REMOTE:
 					if l.Error != nil {
 						log.Printf("[!] Remote Web Run Error: %v", l.Error)
 					} else {
 						log.Printf("[+] Remote Web Running: %v", l.Message)
 					}
-				case "web_deps_installation":
+				case models.WEB_DEPS_INSTALLATION:
 					if l.Error != nil {
 						log.Printf("[!] Web Dependencies Installation Error: %v", l.Error)
 					} else {
 						log.Printf("[+] Web Dependencies Installed: %v", l.Message)
 					}
-				case "web_ui_build":
+				case models.WEB_UI_BUILD:
 					if l.Error != nil {
 						log.Printf("[!] Web UI Build error: %v", l.Error)
 					} else {

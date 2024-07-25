@@ -59,13 +59,13 @@ func NewServer(dir string, logCh chan models.ServerLog) *Server {
 func (s *Server) buildUI() (string, error) {
 	commands := []map[string]interface{}{
 		{
-			"type":    "web_deps_installation",
+			"type":    models.WEB_DEPS_INSTALLATION,
 			"step":    "Installing dependencies",
 			"command": "npm",
 			"args":    []string{"install", "--prefix", webUIPath},
 		},
 		{
-			"type":    "web_ui_build",
+			"type":    models.WEB_UI_BUILD,
 			"step":    "Building",
 			"command": "npm",
 			"args":    []string{"run", "build", "--prefix", webUIPath},
@@ -106,7 +106,7 @@ func (s *Server) runCmd(logType, cmd string, args ...string) (string, error) {
 
 			if !isErrOutput {
 				switch logType {
-				case "serve_web_ui_local":
+				case models.SERVE_WEB_UI_LOCAL:
 					if strings.Contains(*output, "Ready") {
 						s.logCh <- models.ServerLog{
 							Message: "http://localhost:3000",
@@ -114,7 +114,7 @@ func (s *Server) runCmd(logType, cmd string, args ...string) (string, error) {
 						}
 					}
 
-				case "serve_web_ui_remote":
+				case models.SERVE_WEB_UI_REMOTE:
 					url := strings.Split(*output, "your url is: ")[1]
 
 					s.logCh <- models.ServerLog{
@@ -122,7 +122,7 @@ func (s *Server) runCmd(logType, cmd string, args ...string) (string, error) {
 						Type:    logType,
 					}
 
-				case "web_ui_build":
+				case models.WEB_UI_BUILD:
 					if strings.Contains(*output, "(Dynamic)  server-rendered on demand") {
 						s.logCh <- models.ServerLog{
 							Message: "Frontend build successful",
@@ -163,7 +163,7 @@ func (s *Server) runCmd(logType, cmd string, args ...string) (string, error) {
 func (s *Server) getFileUpload(w http.ResponseWriter, r *http.Request) {
 	s.logCh <- models.ServerLog{
 		Message: "Receiving files",
-		Type:    "api_log",
+		Type:    models.API_LOG,
 	}
 
 	// TODO: Make limit configurable
@@ -205,7 +205,7 @@ func (s *Server) getFileUpload(w http.ResponseWriter, r *http.Request) {
 
 		s.logCh <- models.ServerLog{
 			Message: fmt.Sprintf("File received at %v", uploadDir),
-			Type:    "api_log",
+			Type:    models.API_LOG,
 		}
 
 	}
@@ -230,7 +230,7 @@ func (s *Server) downloadFileHandler(w http.ResponseWriter, r *http.Request) {
 
 		s.logCh <- models.ServerLog{
 			Message: fmt.Sprintf("Downloading %v", file),
-			Type:    "api_log",
+			Type:    models.API_LOG,
 		}
 
 		http.ServeFile(w, r, file)
@@ -252,7 +252,7 @@ func (s *Server) getServerConfig(w http.ResponseWriter, _ *http.Request) {
 
 	s.logCh <- models.ServerLog{
 		Message: "Getting server config",
-		Type:    "api_log",
+		Type:    models.API_LOG,
 	}
 
 	w.Write(configJson)
@@ -281,7 +281,7 @@ func (s *Server) getFilesHandler(w http.ResponseWriter, r *http.Request) {
 
 	s.logCh <- models.ServerLog{
 		Message: fmt.Sprintf("Getting files for %v", dir),
-		Type:    "api_log",
+		Type:    models.API_LOG,
 	}
 
 	dirFiles, err := os.ReadDir(dir)
@@ -318,26 +318,26 @@ func (s *Server) getFilesHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) Start() {
 	s.logCh <- models.ServerLog{
 		Message: "Starting server",
-		Type:    "api_log",
+		Type:    models.API_LOG,
 	}
 
 	_, err := os.Stat(webUIPath)
 	if err != nil {
-		_, err = s.runCmd("web_ui_download", "git", "clone", "https://github.com/Owbird/SVault-Engine-File-Server-Web.git", webUIPath)
+		_, err = s.runCmd(models.WEB_UI_DOWNLOAD, "git", "clone", "https://github.com/Owbird/SVault-Engine-File-Server-Web.git", webUIPath)
 		if err != nil {
 			s.logCh <- models.ServerLog{
 				Error: err,
-				Type:  "web_ui_download",
+				Type:  models.WEB_UI_DOWNLOAD,
 			}
 			return
 
 		}
 	} else {
-		res, err := s.runCmd("web_ui_version_check", "git", "-C", webUIPath, "log", "--oneline", "-n", "1")
+		res, err := s.runCmd(models.WEB_UI_VERSION_CHECK, "git", "-C", webUIPath, "log", "--oneline", "-n", "1")
 		if err != nil {
 			s.logCh <- models.ServerLog{
 				Error: err,
-				Type:  "web_ui_version_check",
+				Type:  models.WEB_UI_VERSION_CHECK,
 			}
 
 			return
@@ -355,11 +355,11 @@ func (s *Server) Start() {
 			remoteCommit := commitsRes[0]["sha"].(string)[:7]
 
 			if remoteCommit != currentCommit {
-				_, err := s.runCmd("web_ui_version_update", "git", "-C", webUIPath, "pull")
+				_, err := s.runCmd(models.WEB_UI_VERSION_UPDATE, "git", "-C", webUIPath, "pull")
 				if err != nil {
 					s.logCh <- models.ServerLog{
 						Error: err,
-						Type:  "web_ui_version_update",
+						Type:  models.WEB_UI_VERSION_UPDATE,
 					}
 
 					return
@@ -380,11 +380,11 @@ func (s *Server) Start() {
 	}
 
 	go (func() {
-		_, err := s.runCmd("serve_web_ui_local", "npm", "run", "start", "--prefix", webUIPath)
+		_, err := s.runCmd(models.SERVE_WEB_UI_LOCAL, "npm", "run", "start", "--prefix", webUIPath)
 		if err != nil {
 			s.logCh <- models.ServerLog{
 				Error: err,
-				Type:  "serve_web_ui_local",
+				Type:  models.SERVE_WEB_UI_LOCAL,
 			}
 		}
 	})()
@@ -394,7 +394,7 @@ func (s *Server) Start() {
 		if err != nil {
 			s.logCh <- models.ServerLog{
 				Error: err,
-				Type:  "serve_web_ui_remote",
+				Type:  models.SERVE_WEB_UI_REMOTE,
 			}
 		}
 	})()
@@ -421,14 +421,14 @@ func (s *Server) Start() {
 
 	s.logCh <- models.ServerLog{
 		Message: fmt.Sprintf("Starting API on port %v from %v", PORT, s.Dir),
-		Type:    "api_log",
+		Type:    models.API_LOG,
 	}
 
 	err = http.ListenAndServe(fmt.Sprintf(":%v", PORT), corsOpts.Handler(mux))
 	if err != nil {
 		s.logCh <- models.ServerLog{
 			Error: err,
-			Type:  "api_log",
+			Type:  models.API_LOG,
 		}
 	}
 }
