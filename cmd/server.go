@@ -67,6 +67,12 @@ var startCmd = &cobra.Command{
 					} else {
 						log.Printf("[+] Web UI Built: %v", l.Message)
 					}
+				default:
+					if l.Error != nil {
+						log.Printf("[!] Server Error: %v", l.Error)
+					} else {
+						log.Printf("[+] Server Log: %v", l.Message)
+					}
 				}
 			}
 		}()
