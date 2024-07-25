@@ -161,6 +161,11 @@ func (s *Server) runCmd(logType, cmd string, args ...string) (string, error) {
 }
 
 func (s *Server) getFileUpload(w http.ResponseWriter, r *http.Request) {
+	s.logCh <- models.ServerLog{
+		Message: "Receiving files",
+		Type:    "api_log",
+	}
+
 	// TODO: Make limit configurable
 	// 100MB Limit
 	if err := r.ParseMultipartForm(100 << 20); err != nil {
@@ -196,6 +201,11 @@ func (s *Server) getFileUpload(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+
+		s.logCh <- models.ServerLog{
+			Message: fmt.Sprintf("File received at %v", uploadDir),
+			Type:    "api_log",
 		}
 
 	}
@@ -238,6 +248,11 @@ func (s *Server) getServerConfig(w http.ResponseWriter, _ *http.Request) {
 	if err != nil {
 		http.Error(w, "Failed to get server", http.StatusInternalServerError)
 		return
+	}
+
+	s.logCh <- models.ServerLog{
+		Message: "Getting server config",
+		Type:    "api_log",
 	}
 
 	w.Write(configJson)
@@ -301,6 +316,11 @@ func (s *Server) getFilesHandler(w http.ResponseWriter, r *http.Request) {
 
 // Starts starts and serves the specified dir
 func (s *Server) Start() {
+	s.logCh <- models.ServerLog{
+		Message: "Starting server",
+		Type:    "api_log",
+	}
+
 	_, err := os.Stat(webUIPath)
 	if err != nil {
 		_, err = s.runCmd("web_ui_download", "git", "clone", "https://github.com/Owbird/SVault-Engine-File-Server-Web.git", webUIPath)
