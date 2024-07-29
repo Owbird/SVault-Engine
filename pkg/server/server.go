@@ -437,7 +437,7 @@ func (s *Server) Start() {
 
 // Send a file through a wormhole from a device
 // TODO: Support directories
-func (s *Server) Share(file string) (string, chan wormhole.SendResult, error) {
+func (s *Server) Share(file string, progressCh chan models.FileShareProgress) (string, chan wormhole.SendResult, error) {
 	f, err := os.Open(file)
 	if err != nil {
 		return "", nil, err
@@ -446,7 +446,14 @@ func (s *Server) Share(file string) (string, chan wormhole.SendResult, error) {
 	var c wormhole.Client
 	ctx := context.Background()
 
-	return c.SendFile(ctx, file, f)
+	handleProgress := func(sentBytes int64, totalBytes int64) {
+		progressCh <- models.FileShareProgress{
+			Bytes: sentBytes,
+			Total: totalBytes,
+		}
+	}
+
+	return c.SendFile(ctx, file, f, wormhole.WithProgress(handleProgress))
 }
 
 // Receive file from device through wormhole

@@ -6,7 +6,6 @@ import (
 
 	"github.com/Owbird/SVault-Engine/pkg/models"
 	"github.com/Owbird/SVault-Engine/pkg/server"
-	"github.com/psanford/wormhole-william/wormhole"
 	"github.com/spf13/cobra"
 )
 
@@ -28,21 +27,33 @@ var shareCmd = &cobra.Command{
 			log.Fatalf("Failed to get 'file' flag: %v", err)
 		}
 
-		res := make(chan wormhole.SendResult)
+		progressCh := make(chan models.FileShareProgress, 1)
 
-		defer close(res)
+		defer close(progressCh)
 
-		code, st, err := server.Share(file)
+		code, st, err := server.Share(file, progressCh)
 
 		log.Println("Code: ", code)
 
-		status := <-st
+		for {
+			select {
+			case status := <-st:
 
-		if status.Error != nil {
-			log.Fatalf("Send error: %s", status.Error)
+				if status.Error != nil {
+					log.Fatalf("Send error: %s", status.Error)
+				}
+
+				log.Println("File sent!")
+
+				return
+
+			case progress := <-progressCh:
+				percentage := int((float64(progress.Bytes) / float64(progress.Total)) * 100)
+
+				log.Printf("Sent: %v/%v (%v%%)", progress.Bytes, progress.Total, percentage)
+
+			}
 		}
-
-		log.Println("File sent!")
 	},
 }
 

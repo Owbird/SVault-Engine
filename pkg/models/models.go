@@ -61,3 +61,8 @@ type ServerLog struct {
 
 	Error error
 }
+
+type FileShareProgress struct {
+	Bytes int64
+	Total int64
+}
