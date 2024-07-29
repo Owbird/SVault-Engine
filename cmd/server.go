@@ -32,6 +32,9 @@ var shareCmd = &cobra.Command{
 		defer close(progressCh)
 
 		code, st, err := server.Share(file, progressCh)
+		if err != nil {
+			log.Fatalln(err)
+		}
 
 		log.Println("Code: ", code)
 
