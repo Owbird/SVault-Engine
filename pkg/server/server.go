@@ -3,6 +3,7 @@ package server
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"github.com/Owbird/SVault-Engine/internal/utils"
 	"github.com/Owbird/SVault-Engine/pkg/config"
 	"github.com/Owbird/SVault-Engine/pkg/models"
+	"github.com/psanford/wormhole-william/wormhole"
 	"github.com/rs/cors"
 )
 
@@ -431,4 +433,37 @@ func (s *Server) Start() {
 			Type:  models.API_LOG,
 		}
 	}
+}
+
+// Send a file through a wormhole from a device
+// TODO: Support directories
+func (s *Server) Share(file string) (string, chan wormhole.SendResult, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return "", nil, err
+	}
+
+	var c wormhole.Client
+	ctx := context.Background()
+
+	return c.SendFile(ctx, file, f)
+}
+
+// Receive file from device through wormhole
+// TODO: Support output dir
+func (s *Server) Receive(code string) error {
+	var c wormhole.Client
+
+	ctx := context.Background()
+	fileInfo, err := c.Receive(ctx, code)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(os.Stdout, fileInfo)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
