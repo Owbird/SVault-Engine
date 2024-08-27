@@ -152,3 +152,20 @@ func (db *Database) ListVaultFiles(vault string) ([]models.File, error) {
 
 	return files, nil
 }
+
+func (db *Database) SaveVaultKey(key, password, vault string) error {
+	doc := c.NewDocument()
+	doc.Set("Password", password)
+	doc.Set("VaultKey", key)
+	doc.Set("Vault", vault)
+
+	store := OpenDb()
+	defer store.Close()
+
+	_, err := store.InsertOne("vault_keys", doc)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

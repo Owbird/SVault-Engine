@@ -14,13 +14,15 @@ import (
 
 type Vault struct {
 	models.Vault
-	db *database.Database
+	db     *database.Database
+	crypto *crypto.Crypto
 }
 
 // A new vault with the database initialized
 func NewVault() *Vault {
 	return &Vault{
-		db: database.NewDatabase(),
+		crypto: crypto.NewCrypto(),
+		db:     database.NewDatabase(),
 	}
 }
 
@@ -34,6 +36,10 @@ func (v *Vault) Create(name, password string) error {
 	if err != nil {
 		return err
 	}
+
+	vaultKey := v.crypto.GenSecretKey()
+
+	v.db.SaveVaultKey(vaultKey, password, name)
 
 	return nil
 }
@@ -75,9 +81,7 @@ func (v *Vault) Add(file, vault, password string) error {
 		return err
 	}
 
-	crypto := crypto.NewCrypto()
-
-	encBuffer, err := crypto.Encrypt(buffer, password)
+	encBuffer, err := v.crypto.Encrypt(buffer, password)
 	if err != nil {
 		return err
 	}
