@@ -14,6 +14,9 @@ import (
 type AppConfig struct {
 	// The server configuration
 	server *config.ServerConfig
+
+	// The notification configuration
+	notification *config.NotifConfig
 }
 
 // Gets the app configuration from
@@ -37,6 +40,7 @@ func NewAppConfig() *AppConfig {
 
 	viper.SetDefault("server.name", fmt.Sprintf("%v's Server", hostname))
 	viper.SetDefault("server.allowUploads", false)
+	viper.SetDefault("notification.allowNotif", true)
 
 	err = viper.ReadInConfig()
 	if err != nil {
@@ -44,11 +48,13 @@ func NewAppConfig() *AppConfig {
 	}
 
 	config := &AppConfig{
-		server: config.NewServerConfig(),
+		server:       config.NewServerConfig(),
+		notification: config.NewNotifConfig(),
 	}
 
 	config.server.SetName(viper.GetString("server.name"))
 	config.server.SetAllowUploads(viper.GetBool("server.allowUploads"))
+	config.notification.SetAllowNotif(viper.GetBool("notification.allowNotif"))
 
 	return config
 }
@@ -62,6 +68,7 @@ func (ac *AppConfig) GetSeverConfig() *config.ServerConfig {
 func (ac *AppConfig) Save() error {
 	viper.Set("server.name", ac.server.GetName())
 	viper.Set("server.allowUploads", ac.server.GetAllowUploads())
+	viper.Set("notification.allowNotif", ac.notification.GetAllowNotif())
 
 	return viper.WriteConfig()
 }

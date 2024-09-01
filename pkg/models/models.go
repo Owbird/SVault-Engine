@@ -14,6 +14,17 @@ const (
 	SERVE_WEB_UI_REMOTE   = "serve_web_ui_remote"
 )
 
+type Notification struct {
+	// The title of the notification
+	Title string
+
+	// The message of the notification
+	Body string
+
+	// The text to be copied to the clipboard
+	ClipboardText string
+}
+
 type Vault struct {
 	// Name is the name of the vault
 	Name string
