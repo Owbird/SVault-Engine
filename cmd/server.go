@@ -21,42 +21,26 @@ var shareCmd = &cobra.Command{
 	Short: "Share file to device",
 	Long:  `Share file to device`,
 	Run: func(cmd *cobra.Command, args []string) {
-		server := server.NewServer("", nil)
+		svr := server.NewServer("", nil)
 		file, err := cmd.Flags().GetString("file")
 		if err != nil {
 			log.Fatalf("Failed to get 'file' flag: %v", err)
 		}
 
-		progressCh := make(chan models.FileShareProgress, 1)
-
-		defer close(progressCh)
-
-		code, st, err := server.Share(file, progressCh)
-		if err != nil {
-			log.Fatalln(err)
-		}
-
-		log.Println("Code: ", code)
-
-		for {
-			select {
-			case status := <-st:
-
-				if status.Error != nil {
-					log.Fatalf("Send error: %s", status.Error)
-				}
-
+		svr.Share(file, server.ShareCallBacks{
+			OnSendErr: func(err error) {
+				log.Fatalf("Send error: %s", err)
+			},
+			OnFileSent: func() {
 				log.Println("File sent!")
-
-				return
-
-			case progress := <-progressCh:
-				percentage := int((float64(progress.Bytes) / float64(progress.Total)) * 100)
-
-				log.Printf("Sent: %v/%v (%v%%)", progress.Bytes, progress.Total, percentage)
-
-			}
-		}
+			},
+			OnCodeReceive: func(code string) {
+				log.Println("Code: ", code)
+			},
+			OnProgressChange: func(progress models.FileShareProgress) {
+				log.Printf("Sent: %v/%v (%v%%)", progress.Bytes, progress.Total, progress.Percentage)
+			},
+		})
 	},
 }
 

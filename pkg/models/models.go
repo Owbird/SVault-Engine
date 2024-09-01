@@ -74,6 +74,7 @@ type ServerLog struct {
 }
 
 type FileShareProgress struct {
-	Bytes int64
-	Total int64
+	Bytes      int64
+	Total      int64
+	Percentage int
 }

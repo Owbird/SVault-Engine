@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/Owbird/SVault-Engine/internal/utils"
 	"github.com/Owbird/SVault-Engine/pkg/config"
@@ -39,6 +40,21 @@ type File struct {
 
 	// Size of the file in bytes
 	Size int64 `json:"size"`
+}
+
+// ShareCallBacks defines a set of callback functions for handling file sharing events.
+type ShareCallBacks struct {
+	// OnFileSent is called when a file has been successfully sent.
+	OnFileSent func()
+
+	// OnSendErr is called when an error occurs during the file sending process.
+	OnSendErr func(err error)
+
+	// OnProgressChange is called to provide updates on the progress of the file sharing operation.
+	OnProgressChange func(progress models.FileShareProgress)
+
+	// OnCodeReceive is called when the code to initiate the file sharing process has been received.
+	OnCodeReceive func(code string)
 }
 
 const (
@@ -437,23 +453,74 @@ func (s *Server) Start() {
 
 // Send a file through a wormhole from a device
 // TODO: Support directories
-func (s *Server) Share(file string, progressCh chan models.FileShareProgress) (string, chan wormhole.SendResult, error) {
+func (s *Server) Share(file string, callbacks ShareCallBacks) {
 	f, err := os.Open(file)
 	if err != nil {
-		return "", nil, err
+		callbacks.OnSendErr(err)
+
+		return
 	}
 
 	var c wormhole.Client
 	ctx := context.Background()
 
+	progressCh := make(chan models.FileShareProgress, 1)
+
 	handleProgress := func(sentBytes int64, totalBytes int64) {
 		progressCh <- models.FileShareProgress{
-			Bytes: sentBytes,
-			Total: totalBytes,
+			Bytes:      sentBytes,
+			Total:      totalBytes,
+			Percentage: int((float64(sentBytes) / float64(totalBytes)) * 100),
 		}
 	}
 
-	return c.SendFile(ctx, file, f, wormhole.WithProgress(handleProgress))
+	code, st, err := c.SendFile(ctx, file, f, wormhole.WithProgress(handleProgress))
+
+	if err != nil && callbacks.OnSendErr != nil {
+		callbacks.OnSendErr(err)
+
+		return
+	}
+
+	if callbacks.OnCodeReceive != nil {
+		callbacks.OnCodeReceive(code)
+	}
+
+	wg := sync.WaitGroup{}
+
+	wg.Add(1)
+	go func() {
+		for {
+			select {
+			case status := <-st:
+				if status.Error != nil && callbacks.OnSendErr != nil {
+					callbacks.OnSendErr(status.Error)
+
+					return
+				}
+
+				if !status.OK && status.Error != nil && callbacks.OnSendErr != nil {
+					callbacks.OnSendErr(fmt.Errorf("unknown error occurred"))
+					return
+
+				} else {
+					if callbacks.OnFileSent != nil {
+						callbacks.OnFileSent()
+					}
+
+					wg.Done()
+					return
+				}
+
+			case progress := <-progressCh:
+				if callbacks.OnProgressChange != nil {
+					callbacks.OnProgressChange(progress)
+				}
+			}
+		}
+	}()
+
+	wg.Wait()
 }
 
 // Receive file from device through wormhole
