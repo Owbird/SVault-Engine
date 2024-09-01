@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 
 	"github.com/Owbird/SVault-Engine/pkg/models"
+	"github.com/atotto/clipboard"
 	"github.com/martinlindhe/notify"
-	"golang.design/x/clipboard"
 )
 
 func GetSVaultDir() (string, error) {
@@ -22,6 +22,6 @@ func SendNotification(notification models.Notification) {
 	notify.Notify("SVault", notification.Title, notification.Body, "")
 
 	if notification.ClipboardText != "" {
-		clipboard.Write(clipboard.FmtText, []byte(notification.ClipboardText))
+		clipboard.WriteAll(notification.ClipboardText)
 	}
 }
