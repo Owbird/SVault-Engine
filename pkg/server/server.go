@@ -140,6 +140,12 @@ func (s *Server) runCmd(logType, cmd string, args ...string) (string, error) {
 						Type:    logType,
 					}
 
+					utils.SendNotification(models.Notification{
+						Title:         "Web Server Ready",
+						Body:          "URL copied to clipboard",
+						ClipboardText: url,
+					})
+
 				case models.WEB_UI_BUILD:
 					if strings.Contains(*output, "(Dynamic)  server-rendered on demand") {
 						s.logCh <- models.ServerLog{
@@ -484,6 +490,12 @@ func (s *Server) Share(file string, callbacks ShareCallBacks) {
 
 	if callbacks.OnCodeReceive != nil {
 		callbacks.OnCodeReceive(code)
+
+		utils.SendNotification(models.Notification{
+			Title:         "Share code received",
+			Body:          "Code copied to clipboard.",
+			ClipboardText: code,
+		})
 	}
 
 	wg := sync.WaitGroup{}
@@ -538,6 +550,11 @@ func (s *Server) Receive(code string) error {
 	if err != nil {
 		return err
 	}
+
+	utils.SendNotification(models.Notification{
+		Title: "File received",
+		Body:  fmt.Sprintf("File %v received", fileInfo.Name),
+	})
 
 	return nil
 }
