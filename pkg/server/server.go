@@ -61,7 +61,18 @@ const (
 	PORT = 8080
 )
 
-var webUIPath string
+var (
+	webUIPath string
+	appConfig = config.NewAppConfig()
+)
+
+func sendNotification(notif models.Notification) {
+	appConfig.GetNotifConfig().SendNotification(models.Notification{
+		Title:         notif.Title,
+		Body:          notif.Body,
+		ClipboardText: notif.ClipboardText,
+	})
+}
 
 func NewServer(dir string, logCh chan models.ServerLog) *Server {
 	userDir, _ := utils.GetSVaultDir()
@@ -140,7 +151,7 @@ func (s *Server) runCmd(logType, cmd string, args ...string) (string, error) {
 						Type:    logType,
 					}
 
-					utils.SendNotification(models.Notification{
+					sendNotification(models.Notification{
 						Title:         "Web Server Ready",
 						Body:          "URL copied to clipboard",
 						ClipboardText: url,
@@ -266,7 +277,7 @@ func (s *Server) downloadFileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getServerConfig(w http.ResponseWriter, _ *http.Request) {
-	serverConfig := config.NewAppConfig().ToJson()["server"]
+	serverConfig := appConfig.ToJson()["server"]
 
 	configJson, err := json.Marshal(serverConfig)
 	if err != nil {
@@ -491,7 +502,7 @@ func (s *Server) Share(file string, callbacks ShareCallBacks) {
 	if callbacks.OnCodeReceive != nil {
 		callbacks.OnCodeReceive(code)
 
-		utils.SendNotification(models.Notification{
+		sendNotification(models.Notification{
 			Title:         "Share code received",
 			Body:          "Code copied to clipboard.",
 			ClipboardText: code,
@@ -551,7 +562,7 @@ func (s *Server) Receive(code string) error {
 		return err
 	}
 
-	utils.SendNotification(models.Notification{
+	sendNotification(models.Notification{
 		Title: "File received",
 		Body:  fmt.Sprintf("File %v received", fileInfo.Name),
 	})

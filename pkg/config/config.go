@@ -64,6 +64,11 @@ func (ac *AppConfig) GetSeverConfig() *config.ServerConfig {
 	return ac.server
 }
 
+// GetNotifConfig returns the notification configuration
+func (ac *AppConfig) GetNotifConfig() *config.NotifConfig {
+	return ac.notification
+}
+
 // Save saves the server configuration to svault.toml
 func (ac *AppConfig) Save() error {
 	viper.Set("server.name", ac.server.GetName())
