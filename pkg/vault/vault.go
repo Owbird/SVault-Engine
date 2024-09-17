@@ -81,7 +81,12 @@ func (v *Vault) Add(file, vault, password string) error {
 		return err
 	}
 
-	encBuffer, err := v.crypto.Encrypt(buffer, password)
+	vaultKey, err := v.db.GetVaultKey(vault, password)
+	if err != nil {
+		return err
+	}
+
+	encBuffer, err := v.crypto.Encrypt(buffer, vaultKey)
 	if err != nil {
 		return err
 	}

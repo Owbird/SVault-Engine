@@ -16,17 +16,14 @@ func NewDatabase() *Database {
 	db := OpenDb()
 	defer db.Close()
 
-	err := db.CreateCollection("vaults")
-	if err != nil {
-		if !errors.Is(c.ErrCollectionExist, err) {
-			log.Fatalln(err)
-		}
-	}
+	collections := []string{"vaults", "vault_keys", "files"}
 
-	err = db.CreateCollection("files")
-	if err != nil {
-		if !errors.Is(c.ErrCollectionExist, err) {
-			log.Fatalln(err)
+	for _, collection := range collections {
+		err := db.CreateCollection(collection)
+		if err != nil {
+			if !errors.Is(c.ErrCollectionExist, err) {
+				log.Fatalln(err)
+			}
 		}
 	}
 
@@ -153,7 +150,7 @@ func (db *Database) ListVaultFiles(vault string) ([]models.File, error) {
 	return files, nil
 }
 
-func (db *Database) SaveVaultKey(key, password, vault string) error {
+func (db *Database) SaveVaultKey(key []byte, password, vault string) error {
 	doc := c.NewDocument()
 	doc.Set("Password", password)
 	doc.Set("VaultKey", key)
@@ -168,4 +165,28 @@ func (db *Database) SaveVaultKey(key, password, vault string) error {
 	}
 
 	return nil
+}
+
+func (db *Database) GetVaultKey(vault, password string) ([]byte, error) {
+	query := c.Field("Vault").Eq(vault).And(c.Field("Password").Eq(password))
+
+	store := OpenDb()
+	defer store.Close()
+
+	doc, err := store.Query("vault_keys").Where(query).FindFirst()
+	if err != nil {
+		return []byte{}, err
+	}
+
+	if doc == nil {
+		return []byte{}, nil
+	}
+
+	var v struct {
+		VaultKey []byte
+	}
+
+	doc.Unmarshal(&v)
+
+	return v.VaultKey, nil
 }
