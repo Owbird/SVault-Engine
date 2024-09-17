@@ -113,6 +113,26 @@ func (v *Vault) Add(file, vault, password string) error {
 	return nil
 }
 
+// Add adds a file to the vault after a successful
+// authentication
+func (v *Vault) DeleteFile(file, vault, password string) error {
+	pwdMatch, err := v.Auth(vault, password)
+	if err != nil {
+		return err
+	}
+
+	if !pwdMatch {
+		return fmt.Errorf("passwords do not match")
+	}
+
+	err = v.db.DeleteFromVault(file, vault)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // ListFileVaults returns a slice of added files to the
 // specified vault
 func (v *Vault) ListFileVaults(vault, password string) ([]models.File, error) {

@@ -76,15 +76,27 @@ var fileCmd = &cobra.Command{
 			log.Fatalf("Failed to get 'password' flag: %v", err)
 		}
 
-		file, err := cmd.Flags().GetString("add")
+		fileToAdd, err := cmd.Flags().GetString("add")
 		if err != nil {
 			log.Fatalf("Failed to get 'file' flag: %v", err)
 		}
 
-		if file != "" {
-			err = v.Add(file, vault, password)
+		if fileToAdd != "" {
+			err = v.Add(fileToAdd, vault, password)
 			if err != nil {
 				log.Fatalf("Failed to add file to vault: %v", err)
+			}
+		}
+
+		fileToDelete, err := cmd.Flags().GetString("delete")
+		if err != nil {
+			log.Fatalf("Failed to get 'file' flag: %v", err)
+		}
+
+		if fileToDelete != "" {
+			err = v.DeleteFile(fileToDelete, vault, password)
+			if err != nil {
+				log.Fatalf("Failed to delete file from vault: %v", err)
 			}
 		}
 
@@ -128,6 +140,7 @@ func init() {
 	createCmd.MarkFlagRequired("password")
 
 	fileCmd.Flags().StringP("add", "a", "", "Add file to the vault")
+	fileCmd.Flags().StringP("delete", "d", "", "Delete file from the vault")
 	fileCmd.Flags().StringP("password", "p", "", "Password of the vault")
 	fileCmd.Flags().StringP("vault", "v", "", "Name of the vault")
 	fileCmd.Flags().BoolP("list", "l", false, "List files in the vault")

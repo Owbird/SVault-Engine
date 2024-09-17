@@ -190,3 +190,17 @@ func (db *Database) GetVaultKey(vault, password string) ([]byte, error) {
 
 	return v.VaultKey, nil
 }
+
+func (db *Database) DeleteFromVault(name, vault string) error {
+	query := c.Field("Vault").Eq(vault).And(c.Field("Name").Eq(name))
+
+	store := OpenDb()
+	defer store.Close()
+
+	err := store.Query("files").Where(query).Delete()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
