@@ -204,3 +204,17 @@ func (db *Database) DeleteFromVault(name, vault string) error {
 
 	return nil
 }
+
+func (db *Database) DeleteVault(vault string) error {
+	query := c.Field("Name").Eq(vault)
+
+	store := OpenDb()
+	defer store.Close()
+
+	err := store.Query("vaults").Where(query).Delete()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

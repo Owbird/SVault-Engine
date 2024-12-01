@@ -36,6 +36,26 @@ var createCmd = &cobra.Command{
 	},
 }
 
+var rmCmd = &cobra.Command{
+	Use:   "remove",
+	Short: "Remove a new vault",
+	Long:  `Remove a new vault`,
+	Run: func(cmd *cobra.Command, args []string) {
+		name, err := cmd.Flags().GetString("name")
+		if err != nil {
+			log.Fatalf("Failed to get 'name' flag: %v", err)
+		}
+
+		password, err := cmd.Flags().GetString("password")
+		if err != nil {
+			log.Fatalf("Failed to get 'password' flag: %v", err)
+		}
+
+		vault := vault.NewVault()
+		vault.DeleteVault(name, password)
+	},
+}
+
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List created vaults",
@@ -130,14 +150,21 @@ func init() {
 	rootCmd.AddCommand(vaultCmd)
 
 	vaultCmd.AddCommand(createCmd)
+	vaultCmd.AddCommand(rmCmd)
 	vaultCmd.AddCommand(listCmd)
 	vaultCmd.AddCommand(fileCmd)
 
 	createCmd.Flags().StringP("name", "n", "", "Name of new vault")
 	createCmd.Flags().StringP("password", "p", "", "Password of the vault")
 
+	rmCmd.Flags().StringP("name", "n", "", "Name of new vault")
+	rmCmd.Flags().StringP("password", "p", "", "Password of the vault")
+
 	createCmd.MarkFlagRequired("name")
 	createCmd.MarkFlagRequired("password")
+
+	rmCmd.MarkFlagRequired("name")
+	rmCmd.MarkFlagRequired("password")
 
 	fileCmd.Flags().StringP("add", "a", "", "Add file to the vault")
 	fileCmd.Flags().StringP("delete", "d", "", "Delete file from the vault")
