@@ -356,6 +356,8 @@ func (s *Server) Start() {
 		Type:    models.API_LOG,
 	}
 
+	dirtyUIRepo := false
+
 	_, err := os.Stat(webUIPath)
 	if err != nil {
 		_, err = s.runCmd(models.WEB_UI_DOWNLOAD, "git", "clone", "https://github.com/Owbird/SVault-Engine-File-Server-Web.git", webUIPath)
@@ -367,6 +369,7 @@ func (s *Server) Start() {
 			return
 
 		}
+		dirtyUIRepo = true
 	} else {
 		res, err := s.runCmd(models.WEB_UI_VERSION_CHECK, "git", "-C", webUIPath, "log", "--oneline", "-n", "1")
 		if err != nil {
@@ -400,18 +403,22 @@ func (s *Server) Start() {
 					return
 				}
 
+				dirtyUIRepo = true
+
 			}
 		}
 	}
 
-	if cmd, err := s.buildUI(); err != nil {
-		s.logCh <- models.ServerLog{
-			Error: err,
-			Type:  cmd,
+	if dirtyUIRepo {
+		if cmd, err := s.buildUI(); err != nil {
+			s.logCh <- models.ServerLog{
+				Error: err,
+				Type:  cmd,
+			}
+
+			return
+
 		}
-
-		return
-
 	}
 
 	go (func() {
