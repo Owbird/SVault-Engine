@@ -19,6 +19,7 @@ import (
 	"github.com/Owbird/SVault-Engine/internal/utils"
 	"github.com/Owbird/SVault-Engine/pkg/config"
 	"github.com/Owbird/SVault-Engine/pkg/models"
+	"github.com/localtunnel/go-localtunnel"
 	"github.com/psanford/wormhole-william/wormhole"
 	"github.com/rs/cors"
 )
@@ -142,20 +143,6 @@ func (s *Server) runCmd(logType, cmd string, args ...string) (string, error) {
 							Type:    logType,
 						}
 					}
-
-				case models.SERVE_WEB_UI_REMOTE:
-					url := strings.Split(*output, "your url is: ")[1]
-
-					s.logCh <- models.ServerLog{
-						Message: url,
-						Type:    logType,
-					}
-
-					sendNotification(models.Notification{
-						Title:         "Web Server Ready",
-						Body:          "URL copied to clipboard",
-						ClipboardText: url,
-					})
 
 				case models.WEB_UI_BUILD:
 					if strings.Contains(*output, "(Dynamic)  server-rendered on demand") {
@@ -432,12 +419,23 @@ func (s *Server) Start() {
 	})()
 
 	go (func() {
-		_, err := s.runCmd("serve_web_ui_remote", "npx", "--yes", "localtunnel", "--port", "3000")
+		tunnel, err := localtunnel.New(3000, "localhost", localtunnel.Options{})
 		if err != nil {
 			s.logCh <- models.ServerLog{
 				Error: err,
 				Type:  models.SERVE_WEB_UI_REMOTE,
 			}
+		}
+
+		sendNotification(models.Notification{
+			Title:         "Web Server Ready",
+			Body:          "URL copied to clipboard",
+			ClipboardText: tunnel.URL(),
+		})
+
+		s.logCh <- models.ServerLog{
+			Message: tunnel.URL(),
+			Type:    models.SERVE_WEB_UI_REMOTE,
 		}
 	})()
 
