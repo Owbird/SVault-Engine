@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -59,7 +60,8 @@ type ShareCallBacks struct {
 }
 
 const (
-	PORT = 8080
+	PORT    = 8080
+	UI_PORT = 3000
 )
 
 var (
@@ -139,7 +141,7 @@ func (s *Server) runCmd(logType, cmd string, args ...string) (string, error) {
 				case models.SERVE_WEB_UI_LOCAL:
 					if strings.Contains(*output, "Ready") {
 						s.logCh <- models.ServerLog{
-							Message: "http://localhost:3000",
+							Message: fmt.Sprintf("http://localhost:%s", strconv.Itoa(UI_PORT)),
 							Type:    logType,
 						}
 					}
@@ -409,17 +411,32 @@ func (s *Server) Start() {
 	}
 
 	go (func() {
-		_, err := s.runCmd(models.SERVE_WEB_UI_LOCAL, "npm", "run", "start", "--prefix", webUIPath)
+		host, err := utils.GetLocalIp()
+		if err != nil {
+			s.logCh <- models.ServerLog{
+				Error: err,
+				Type:  models.SERVE_WEB_UI_NETWORK,
+			}
+			return
+		}
+
+		s.logCh <- models.ServerLog{
+			Message: fmt.Sprintf("http://%s:%s", host, strconv.Itoa(UI_PORT)),
+			Type:    models.SERVE_WEB_UI_NETWORK,
+		}
+
+		_, err = s.runCmd(models.SERVE_WEB_UI_LOCAL, "npm", "run", "start", "--prefix", webUIPath)
 		if err != nil {
 			s.logCh <- models.ServerLog{
 				Error: err,
 				Type:  models.SERVE_WEB_UI_LOCAL,
 			}
+			return
 		}
 	})()
 
 	go (func() {
-		tunnel, err := localtunnel.New(3000, "localhost", localtunnel.Options{})
+		tunnel, err := localtunnel.New(UI_PORT, "localhost", localtunnel.Options{})
 		if err != nil {
 			s.logCh <- models.ServerLog{
 				Error: err,

@@ -11,6 +11,7 @@ const (
 	WEB_DEPS_INSTALLATION = "web_deps_installation"
 	WEB_UI_BUILD          = "web_ui_build"
 	SERVE_WEB_UI_LOCAL    = "serve_web_ui_local"
+	SERVE_WEB_UI_NETWORK    = "serve_web_ui_network"
 	SERVE_WEB_UI_REMOTE   = "serve_web_ui_remote"
 )
 

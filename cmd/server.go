@@ -91,12 +91,19 @@ var startCmd = &cobra.Command{
 						log.Printf("[+] Local Web Running: %v", l.Message)
 					}
 
+				case models.SERVE_WEB_UI_NETWORK:
+					if l.Error != nil {
+						log.Printf("[!] Network Web Run Error: %v", l.Error)
+					} else {
+						log.Printf("[+] Network Web Running: %v", l.Message)
+					}
 				case models.SERVE_WEB_UI_REMOTE:
 					if l.Error != nil {
 						log.Printf("[!] Remote Web Run Error: %v", l.Error)
 					} else {
 						log.Printf("[+] Remote Web Running: %v", l.Message)
 					}
+
 				case models.WEB_DEPS_INSTALLATION:
 					if l.Error != nil {
 						log.Printf("[!] Web Dependencies Installation Error: %v", l.Error)
