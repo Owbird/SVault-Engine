@@ -3,8 +3,8 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -37,7 +37,7 @@ type File struct {
 	IsDir bool `json:"is_dir"`
 
 	// Size of the file in bytes
-	Size int64 `json:"size"`
+	Size string `json:"size"`
 }
 
 // ShareCallBacks defines a set of callback functions for handling file sharing events.
@@ -55,13 +55,26 @@ type ShareCallBacks struct {
 	OnCodeReceive func(code string)
 }
 
+type IndexHTMLConfig struct {
+	Name         string
+	AllowUploads bool
+}
+
+// IndexHTML defines the data passed to the index.html
+// template file
+type IndexHTML struct {
+	Files        []File
+	CurrentPath  string
+	ServerConfig IndexHTMLConfig
+}
+
 const (
 	PORT = 8080
 )
 
 var (
-	webUIPath string
 	appConfig = config.NewAppConfig()
+	tmpl      *template.Template
 )
 
 func sendNotification(notif models.Notification) {
@@ -73,9 +86,12 @@ func sendNotification(notif models.Notification) {
 }
 
 func NewServer(dir string, logCh chan models.ServerLog) *Server {
-	userDir, _ := utils.GetSVaultDir()
+	tpl, err := template.ParseGlob("pkg/server/templates/*.html")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	webUIPath = filepath.Join(userDir, "web_ui")
+	tmpl = tpl
 
 	return &Server{
 		Dir:   dir,
@@ -164,50 +180,36 @@ func (s *Server) downloadFileHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (s *Server) getServerConfig(w http.ResponseWriter, _ *http.Request) {
-	serverConfig := appConfig.ToJson()["server"]
-
-	configJson, err := json.Marshal(serverConfig)
-	if err != nil {
-		http.Error(w, "Failed to get server", http.StatusInternalServerError)
-		return
-	}
-
-	s.logCh <- models.ServerLog{
-		Message: "Getting server config",
-		Type:    models.API_LOG,
-	}
-
-	w.Write(configJson)
-	return
-}
-
 func (s *Server) getFilesHandler(w http.ResponseWriter, r *http.Request) {
 	files := []File{}
 
 	query := r.URL.Query()
 
-	var dir string
+	var fullPath string
+	var currentPath string
 
 	if len(query["dir"]) > 0 {
-		if filepath.Base(query["dir"][0]) == ".." {
+		currentPath = query["dir"][0]
+
+		if filepath.Base(currentPath) == ".." {
 			http.Error(w, "Failed to list files", http.StatusInternalServerError)
 			return
 
 		}
 
-		dir = filepath.Join(s.Dir, query["dir"][0])
+		fullPath = filepath.Join(s.Dir, currentPath)
 
 	} else {
-		dir = s.Dir
+		currentPath = "/"
+		fullPath = s.Dir
 	}
 
 	s.logCh <- models.ServerLog{
-		Message: fmt.Sprintf("Getting files for %v", dir),
+		Message: fmt.Sprintf("Getting files for %v", fullPath),
 		Type:    models.API_LOG,
 	}
 
-	dirFiles, err := os.ReadDir(dir)
+	dirFiles, err := os.ReadDir(fullPath)
 	if err != nil {
 		http.Error(w, "Failed to list files", http.StatusInternalServerError)
 		return
@@ -221,20 +223,28 @@ func (s *Server) getFilesHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		files = append(files, File{
+		fmtedFile := File{
 			Name:  file.Name(),
 			IsDir: file.IsDir(),
-			Size:  info.Size(),
-		})
+		}
+
+		if !fmtedFile.IsDir {
+			fmtedFile.Size = utils.FmtBytes(info.Size())
+		}
+
+		files = append(files, fmtedFile)
 	}
 
-	filesJson, err := json.Marshal(files)
-	if err != nil {
-		http.Error(w, "Failed to list files", http.StatusInternalServerError)
-		return
-	}
+	serverConfig := appConfig.GetSeverConfig()
 
-	w.Write(filesJson)
+	tmpl.ExecuteTemplate(w, "index.html", IndexHTML{
+		Files:       files,
+		CurrentPath: currentPath,
+		ServerConfig: IndexHTMLConfig{
+			Name:         serverConfig.GetName(),
+			AllowUploads: serverConfig.GetAllowUploads(),
+		},
+	})
 }
 
 // Starts starts and serves the specified dir
@@ -259,6 +269,7 @@ func (s *Server) Start() {
 	}
 
 	go (func() {
+		return
 		tunnel, err := localtunnel.New(PORT, "localhost", localtunnel.Options{})
 		if err != nil {
 			s.logCh <- models.ServerLog{
@@ -282,7 +293,6 @@ func (s *Server) Start() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", s.getFilesHandler)
-	mux.HandleFunc("/config", s.getServerConfig)
 	mux.HandleFunc("/download", s.downloadFileHandler)
 	mux.HandleFunc("/upload", s.getFileUpload)
 

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{{ .ServerConfig.Name }}</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.1/css/all.min.css"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body>
+    <h1 class="text-3xl font-bold mb-4 text-center">{{ .ServerConfig.Name }}</h1>
+
+    <h2>File Listing for {{ .CurrentPath }}</h2>
+    <table class="table-auto w-full border-collapse">
+      <thead>
+        <tr class="bg-gray-200">
+          <th class="border p-2 text-left">Name</th>
+          <th class="border p-2 text-left">Size</th>
+          <th class="border p-2 text-left">Type</th>
+          <th class="border p-2 text-left">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range .Files }}
+        <tr class="hover:bg-teal-100">
+          <td class="border p-2 max-w-[200px]">
+            <a
+              href="{{ if .IsDir}} ?dir={{$.CurrentPath}}/{{.Name}} {{else}} # {{end}}"
+              class="flex items-center"
+            >
+              <i
+                class="fa-solid {{ if .IsDir }}fa-folder text-yellow-300{{ else }}fa-file text-cyan-700{{ end }}"
+              ></i>
+              <span class="ml-2 truncate">{{ .Name }}</span>
+            </a>
+          </td>
+          <td class="border p-2">{{ .Size }}</td>
+          <td class="border p-2">
+            {{ if .IsDir }}Directory{{ else }}File{{ end }}
+          </td>
+          <td class="border">
+            {{ if not .IsDir }}
+            <a
+              href="/download?file={{$.CurrentPath}}/{{.Name}}"
+              class="p-2 bg-blue-400 rounded-lg flex justify-self-center"
+            >
+              Download
+            </a>
+            {{ end }}
+          </td>
+        </tr>
+        {{ end }}
+      </tbody>
+    </table>
+  </body>
+</html>
