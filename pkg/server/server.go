@@ -2,19 +2,15 @@
 package server
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/Owbird/SVault-Engine/internal/utils"
@@ -60,8 +56,7 @@ type ShareCallBacks struct {
 }
 
 const (
-	PORT    = 8080
-	UI_PORT = 3000
+	PORT = 8080
 )
 
 var (
@@ -86,102 +81,6 @@ func NewServer(dir string, logCh chan models.ServerLog) *Server {
 		Dir:   dir,
 		logCh: logCh,
 	}
-}
-
-func (s *Server) buildUI() (string, error) {
-	commands := []map[string]interface{}{
-		{
-			"type":    models.WEB_DEPS_INSTALLATION,
-			"step":    "Installing dependencies",
-			"command": "npm",
-			"args":    []string{"install", "--prefix", webUIPath},
-		},
-		{
-			"type":    models.WEB_UI_BUILD,
-			"step":    "Building",
-			"command": "npm",
-			"args":    []string{"run", "build", "--prefix", webUIPath},
-		},
-	}
-
-	for _, command := range commands {
-		if _, err := s.runCmd(command["type"].(string), command["command"].(string), command["args"].([]string)...); err != nil {
-			return command["type"].(string), err
-		}
-	}
-
-	return "", nil
-}
-
-func (s *Server) runCmd(logType, cmd string, args ...string) (string, error) {
-	command := exec.Command(cmd, args...)
-
-	stdout, err := command.StdoutPipe()
-	if err != nil {
-		return "", err
-	}
-
-	stderr, err := command.StderrPipe()
-	if err != nil {
-		return "", err
-	}
-
-	if err := command.Start(); err != nil {
-		return "", err
-	}
-
-	scanOutput := func(pipe *bufio.Scanner, output *string, isErrOutput bool) {
-		for pipe.Scan() {
-			line := pipe.Text()
-
-			*output += line + "\n"
-
-			if !isErrOutput {
-				switch logType {
-				case models.SERVE_WEB_UI_LOCAL:
-					if strings.Contains(*output, "Ready") {
-						s.logCh <- models.ServerLog{
-							Message: fmt.Sprintf("http://localhost:%s", strconv.Itoa(UI_PORT)),
-							Type:    logType,
-						}
-					}
-
-				case models.WEB_UI_BUILD:
-					if strings.Contains(*output, "(Dynamic)  server-rendered on demand") {
-						s.logCh <- models.ServerLog{
-							Message: "Frontend build successful",
-							Type:    logType,
-						}
-					}
-
-				default:
-					s.logCh <- models.ServerLog{
-						Message: *output,
-						Type:    logType,
-					}
-
-				}
-			} else {
-				s.logCh <- models.ServerLog{
-					Type:  logType,
-					Error: fmt.Errorf(*output),
-				}
-			}
-		}
-	}
-
-	var output string
-	stdoutScanner := bufio.NewScanner(stdout)
-	stderrScanner := bufio.NewScanner(stderr)
-
-	go scanOutput(stdoutScanner, &output, false)
-	go scanOutput(stderrScanner, &output, true)
-
-	if err := command.Wait(); err != nil {
-		return "", errors.New(output)
-	}
-
-	return output, nil
 }
 
 func (s *Server) getFileUpload(w http.ResponseWriter, r *http.Request) {
@@ -345,98 +244,22 @@ func (s *Server) Start() {
 		Type:    models.API_LOG,
 	}
 
-	dirtyUIRepo := false
-
-	_, err := os.Stat(webUIPath)
+	host, err := utils.GetLocalIp()
 	if err != nil {
-		_, err = s.runCmd(models.WEB_UI_DOWNLOAD, "git", "clone", "https://github.com/Owbird/SVault-Engine-File-Server-Web.git", webUIPath)
-		if err != nil {
-			s.logCh <- models.ServerLog{
-				Error: err,
-				Type:  models.WEB_UI_DOWNLOAD,
-			}
-			return
-
-		}
-		dirtyUIRepo = true
-	} else {
-		res, err := s.runCmd(models.WEB_UI_VERSION_CHECK, "git", "-C", webUIPath, "log", "--oneline", "-n", "1")
-		if err != nil {
-			s.logCh <- models.ServerLog{
-				Error: err,
-				Type:  models.WEB_UI_VERSION_CHECK,
-			}
-
-			return
-		}
-
-		currentCommit := strings.Split(string(res), " ")[0]
-
-		resp, err := http.Get("https://api.github.com/repos/owbird/svault-engine-file-server-web/commits")
-		if err == nil && resp.StatusCode == 200 {
-
-			var commitsRes []map[string]interface{}
-
-			json.NewDecoder(resp.Body).Decode(&commitsRes)
-
-			remoteCommit := commitsRes[0]["sha"].(string)[:7]
-
-			if remoteCommit != currentCommit {
-				_, err := s.runCmd(models.WEB_UI_VERSION_UPDATE, "git", "-C", webUIPath, "pull")
-				if err != nil {
-					s.logCh <- models.ServerLog{
-						Error: err,
-						Type:  models.WEB_UI_VERSION_UPDATE,
-					}
-
-					return
-				}
-
-				dirtyUIRepo = true
-
-			}
-		}
-	}
-
-	if dirtyUIRepo {
-		if cmd, err := s.buildUI(); err != nil {
-			s.logCh <- models.ServerLog{
-				Error: err,
-				Type:  cmd,
-			}
-
-			return
-
-		}
-	}
-
-	go (func() {
-		host, err := utils.GetLocalIp()
-		if err != nil {
-			s.logCh <- models.ServerLog{
-				Error: err,
-				Type:  models.SERVE_WEB_UI_NETWORK,
-			}
-			return
-		}
-
 		s.logCh <- models.ServerLog{
-			Message: fmt.Sprintf("http://%s:%s", host, strconv.Itoa(UI_PORT)),
-			Type:    models.SERVE_WEB_UI_NETWORK,
+			Error: err,
+			Type:  models.SERVE_WEB_UI_NETWORK,
 		}
+		return
+	}
 
-		_, err = s.runCmd(models.SERVE_WEB_UI_LOCAL, "npm", "run", "start", "--prefix", webUIPath)
-		if err != nil {
-			s.logCh <- models.ServerLog{
-				Error: err,
-				Type:  models.SERVE_WEB_UI_LOCAL,
-			}
-			return
-		}
-	})()
+	s.logCh <- models.ServerLog{
+		Message: fmt.Sprintf("http://%s:%s", host, strconv.Itoa(PORT)),
+		Type:    models.SERVE_WEB_UI_NETWORK,
+	}
 
 	go (func() {
-		tunnel, err := localtunnel.New(UI_PORT, "localhost", localtunnel.Options{})
+		tunnel, err := localtunnel.New(PORT, "localhost", localtunnel.Options{})
 		if err != nil {
 			s.logCh <- models.ServerLog{
 				Error: err,

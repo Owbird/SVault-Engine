@@ -84,13 +84,6 @@ var startCmd = &cobra.Command{
 					} else {
 						log.Printf("[+] API Log: %v", l.Message)
 					}
-				case models.SERVE_WEB_UI_LOCAL:
-					if l.Error != nil {
-						log.Printf("[!] Local Web Run Error: %v", l.Error)
-					} else {
-						log.Printf("[+] Local Web Running: %v", l.Message)
-					}
-
 				case models.SERVE_WEB_UI_NETWORK:
 					if l.Error != nil {
 						log.Printf("[!] Network Web Run Error: %v", l.Error)
@@ -104,18 +97,6 @@ var startCmd = &cobra.Command{
 						log.Printf("[+] Remote Web Running: %v", l.Message)
 					}
 
-				case models.WEB_DEPS_INSTALLATION:
-					if l.Error != nil {
-						log.Printf("[!] Web Dependencies Installation Error: %v", l.Error)
-					} else {
-						log.Printf("[+] Web Dependencies Installed: %v", l.Message)
-					}
-				case models.WEB_UI_BUILD:
-					if l.Error != nil {
-						log.Printf("[!] Web UI Build error: %v", l.Error)
-					} else {
-						log.Printf("[+] Web UI Built: %v", l.Message)
-					}
 				default:
 					if l.Error != nil {
 						log.Printf("[!] Server Error: %v", l.Error)

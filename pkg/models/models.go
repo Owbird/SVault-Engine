@@ -5,12 +5,6 @@ import "time"
 const (
 	// File Server Log Types
 	API_LOG               = "api_log"
-	WEB_UI_DOWNLOAD       = "web_ui_download"
-	WEB_UI_VERSION_CHECK  = "web_ui_version_check"
-	WEB_UI_VERSION_UPDATE = "web_ui_version_update"
-	WEB_DEPS_INSTALLATION = "web_deps_installation"
-	WEB_UI_BUILD          = "web_ui_build"
-	SERVE_WEB_UI_LOCAL    = "serve_web_ui_local"
 	SERVE_WEB_UI_NETWORK    = "serve_web_ui_network"
 	SERVE_WEB_UI_REMOTE   = "serve_web_ui_remote"
 )
@@ -62,11 +56,6 @@ type ServerLog struct {
 	// [api_log]: Log for the API
 	// [serve_web_ui_local]: Contains local url
 	// [serve_web_ui_remote]: Contains remote link
-	// [web_deps_installation]: Web UI dependency installation logs
-	// [web_ui_build]: Building the web ui logs
-	// [web_ui_download]: Fresh download of the web ui
-	// [web_ui_version_check]: Check current version of web UI
-	// [web_ui_version_update]: Update web UI version
 	Type string
 
 	Message string
