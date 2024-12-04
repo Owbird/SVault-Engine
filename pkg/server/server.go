@@ -269,7 +269,6 @@ func (s *Server) Start() {
 	}
 
 	go (func() {
-		return
 		tunnel, err := localtunnel.New(PORT, "localhost", localtunnel.Options{})
 		if err != nil {
 			s.logCh <- models.ServerLog{
