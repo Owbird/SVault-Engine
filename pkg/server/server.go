@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync"
 
@@ -86,7 +87,13 @@ func sendNotification(notif models.Notification) {
 }
 
 func NewServer(dir string, logCh chan models.ServerLog) *Server {
-	tpl, err := template.ParseGlob("pkg/server/templates/*.html")
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		log.Fatalln("Failed to get templates dir")
+	}
+
+	cwd := filepath.Dir(filename)
+	tpl, err := template.ParseGlob(filepath.Join(cwd, "templates/*.html"))
 	if err != nil {
 		log.Fatal(err)
 	}
