@@ -282,6 +282,7 @@ func (s *Server) Start() {
 				Error: err,
 				Type:  models.SERVE_WEB_UI_REMOTE,
 			}
+			return
 		}
 
 		sendNotification(models.Notification{
