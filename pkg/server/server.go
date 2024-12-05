@@ -4,19 +4,16 @@ package server
 import (
 	"context"
 	"fmt"
-	"html/template"
 	"io"
-	"log"
 	"net/http"
 	"os"
-	"path/filepath"
-	"runtime"
 	"strconv"
 	"sync"
 
 	"github.com/Owbird/SVault-Engine/internal/utils"
 	"github.com/Owbird/SVault-Engine/pkg/config"
 	"github.com/Owbird/SVault-Engine/pkg/models"
+	"github.com/Owbird/SVault-Engine/pkg/server/handlers"
 	"github.com/localtunnel/go-localtunnel"
 	"github.com/psanford/wormhole-william/wormhole"
 	"github.com/rs/cors"
@@ -28,17 +25,6 @@ type Server struct {
 
 	// The channel to send the logs through
 	logCh chan models.ServerLog
-}
-
-type File struct {
-	// The name of the file
-	Name string `json:"name"`
-
-	// Whether it's a file or directory
-	IsDir bool `json:"is_dir"`
-
-	// Size of the file in bytes
-	Size string `json:"size"`
 }
 
 // ShareCallBacks defines a set of callback functions for handling file sharing events.
@@ -56,27 +42,11 @@ type ShareCallBacks struct {
 	OnCodeReceive func(code string)
 }
 
-type IndexHTMLConfig struct {
-	Name         string
-	AllowUploads bool
-}
-
-// IndexHTML defines the data passed to the index.html
-// template file
-type IndexHTML struct {
-	Files        []File
-	CurrentPath  string
-	ServerConfig IndexHTMLConfig
-}
-
 const (
 	PORT = 8080
 )
 
-var (
-	appConfig = config.NewAppConfig()
-	tmpl      *template.Template
-)
+var appConfig = config.NewAppConfig()
 
 func sendNotification(notif models.Notification) {
 	appConfig.GetNotifConfig().SendNotification(models.Notification{
@@ -87,171 +57,10 @@ func sendNotification(notif models.Notification) {
 }
 
 func NewServer(dir string, logCh chan models.ServerLog) *Server {
-	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		log.Fatalln("Failed to get templates dir")
-	}
-
-	cwd := filepath.Dir(filename)
-	tpl, err := template.ParseGlob(filepath.Join(cwd, "templates/*.html"))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	tmpl = tpl
-
 	return &Server{
 		Dir:   dir,
 		logCh: logCh,
 	}
-}
-
-func (s *Server) getFileUpload(w http.ResponseWriter, r *http.Request) {
-	s.logCh <- models.ServerLog{
-		Message: "Receiving files",
-		Type:    models.API_LOG,
-	}
-
-	// TODO: Make limit configurable
-	// 100MB Limit
-	if err := r.ParseMultipartForm(100 << 20); err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	files := r.MultipartForm.File["file"]
-
-	uploadDir := r.FormValue("uploadDir")
-
-	for _, fileHeader := range files {
-		file, err := fileHeader.Open()
-		if err != nil {
-			log.Println(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		defer file.Close()
-
-		uploadDir := filepath.Join(s.Dir, uploadDir, fileHeader.Filename)
-
-		dst, err := os.Create(uploadDir)
-		if err != nil {
-			log.Println(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		defer dst.Close()
-
-		if _, err := io.Copy(dst, file); err != nil {
-			log.Println(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		s.logCh <- models.ServerLog{
-			Message: fmt.Sprintf("File received at %v", uploadDir),
-			Type:    models.API_LOG,
-		}
-
-	}
-
-	return
-}
-
-func (s *Server) downloadFileHandler(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-
-	if len(query["file"]) > 0 {
-		if filepath.Dir(query["file"][0]) == ".." || filepath.Base(query["file"][0]) == ".." {
-			http.Error(w, "Failed to download file", http.StatusInternalServerError)
-			return
-
-		}
-
-		file := filepath.Join(s.Dir, query["file"][0])
-
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%v", filepath.Base(file)))
-		w.Header().Set("Content-Type", "application/octet-stream")
-
-		s.logCh <- models.ServerLog{
-			Message: fmt.Sprintf("Downloading %v", file),
-			Type:    models.API_LOG,
-		}
-
-		http.ServeFile(w, r, file)
-		return
-	}
-
-	http.Error(w, "Failed to download file", http.StatusBadRequest)
-	return
-}
-
-func (s *Server) getFilesHandler(w http.ResponseWriter, r *http.Request) {
-	files := []File{}
-
-	query := r.URL.Query()
-
-	var fullPath string
-	var currentPath string
-
-	if len(query["dir"]) > 0 {
-		currentPath = query["dir"][0]
-
-		if filepath.Base(currentPath) == ".." {
-			http.Error(w, "Failed to list files", http.StatusInternalServerError)
-			return
-
-		}
-
-		fullPath = filepath.Join(s.Dir, currentPath)
-
-	} else {
-		currentPath = "/"
-		fullPath = s.Dir
-	}
-
-	s.logCh <- models.ServerLog{
-		Message: fmt.Sprintf("Getting files for %v", fullPath),
-		Type:    models.API_LOG,
-	}
-
-	dirFiles, err := os.ReadDir(fullPath)
-	if err != nil {
-		http.Error(w, "Failed to list files", http.StatusInternalServerError)
-		return
-	}
-
-	for _, file := range dirFiles {
-
-		info, err := file.Info()
-		if err != nil {
-			http.Error(w, "Failed to list files", http.StatusInternalServerError)
-			return
-		}
-
-		fmtedFile := File{
-			Name:  file.Name(),
-			IsDir: file.IsDir(),
-		}
-
-		if !fmtedFile.IsDir {
-			fmtedFile.Size = utils.FmtBytes(info.Size())
-		}
-
-		files = append(files, fmtedFile)
-	}
-
-	serverConfig := appConfig.GetSeverConfig()
-
-	tmpl.ExecuteTemplate(w, "index.html", IndexHTML{
-		Files:       files,
-		CurrentPath: currentPath,
-		ServerConfig: IndexHTMLConfig{
-			Name:         serverConfig.GetName(),
-			AllowUploads: serverConfig.GetAllowUploads(),
-		},
-	})
 }
 
 // Starts starts and serves the specified dir
@@ -299,9 +108,13 @@ func (s *Server) Start() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", s.getFilesHandler)
-	mux.HandleFunc("/download", s.downloadFileHandler)
-	mux.HandleFunc("/upload", s.getFileUpload)
+	serverConfig := appConfig.GetSeverConfig()
+
+	handlers := handlers.NewHandlers(s.logCh, s.Dir, serverConfig)
+
+	mux.HandleFunc("/", handlers.GetFilesHandler)
+	mux.HandleFunc("/download", handlers.DownloadFileHandler)
+	mux.HandleFunc("/upload", handlers.GetFileUpload)
 
 	corsOpts := cors.New(cors.Options{
 		AllowedOrigins: []string{"https://*.loca.lt", "http://localhost:3000", "http://localhost:3001"},
