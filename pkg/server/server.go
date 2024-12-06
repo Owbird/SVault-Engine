@@ -110,7 +110,7 @@ func (s *Server) Start() {
 
 	serverConfig := appConfig.GetSeverConfig()
 
-	handlerFuncs := handlers.NewHandlers(s.logCh, s.Dir, serverConfig)
+	handlerFuncs := handlers.NewHandlers(s.logCh, s.Dir, serverConfig, appConfig.GetNotifConfig())
 
 	mux.HandleFunc("/", handlerFuncs.GetFilesHandler)
 	mux.HandleFunc("/download", handlerFuncs.DownloadFileHandler)

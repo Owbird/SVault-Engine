@@ -22,6 +22,7 @@ type Handlers struct {
 	logCh        chan models.ServerLog
 	dir          string
 	serverConfig *config.ServerConfig
+	notifConfig  *config.NotifConfig
 }
 
 type File struct {
@@ -61,7 +62,12 @@ func getCwd() string {
 	return cwd
 }
 
-func NewHandlers(logCh chan models.ServerLog, dir string, serverConfig *config.ServerConfig) *Handlers {
+func NewHandlers(
+	logCh chan models.ServerLog,
+	dir string,
+	serverConfig *config.ServerConfig,
+	notifConfig *config.NotifConfig,
+) *Handlers {
 	cwd := getCwd()
 
 	tpl, err := template.ParseGlob(filepath.Join(cwd, "templates/*.html"))
@@ -75,6 +81,7 @@ func NewHandlers(logCh chan models.ServerLog, dir string, serverConfig *config.S
 		logCh:        logCh,
 		dir:          dir,
 		serverConfig: serverConfig,
+		notifConfig:  notifConfig,
 	}
 }
 
@@ -125,6 +132,11 @@ func (h *Handlers) GetFileUpload(w http.ResponseWriter, r *http.Request) {
 			Message: fmt.Sprintf("File received at %v", uploadDir),
 			Type:    models.API_LOG,
 		}
+
+		h.notifConfig.SendNotification(models.Notification{
+			Title: "File received",
+			Body:  fmt.Sprintf("File %v received", fileHeader.Filename),
+		})
 
 	}
 
