@@ -35,6 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
         body: formData,
       });
       uploadStatus.textContent = "Upload complete!";
+      window.location.reload();
     } catch (error) {
       uploadStatus.textContent = "Error uploading files.";
     }

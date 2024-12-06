@@ -91,8 +91,6 @@ func (h *Handlers) GetFileUpload(w http.ResponseWriter, r *http.Request) {
 		Type:    models.API_LOG,
 	}
 
-	// TODO: Make limit configurable
-	// 100MB Limit
 	if err := r.ParseMultipartForm(100 << 20); err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
