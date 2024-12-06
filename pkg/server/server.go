@@ -110,14 +110,15 @@ func (s *Server) Start() {
 
 	serverConfig := appConfig.GetSeverConfig()
 
-	handlers := handlers.NewHandlers(s.logCh, s.Dir, serverConfig)
+	handlerFuncs := handlers.NewHandlers(s.logCh, s.Dir, serverConfig)
 
-	mux.HandleFunc("/", handlers.GetFilesHandler)
-	mux.HandleFunc("/download", handlers.DownloadFileHandler)
-	mux.HandleFunc("/upload", handlers.GetFileUpload)
+	mux.HandleFunc("/", handlerFuncs.GetFilesHandler)
+	mux.HandleFunc("/download", handlerFuncs.DownloadFileHandler)
+	mux.HandleFunc("/upload", handlerFuncs.GetFileUpload)
+	mux.HandleFunc("GET /assets/{file}", handlerFuncs.GetAssets)
 
 	corsOpts := cors.New(cors.Options{
-		AllowedOrigins: []string{"https://*.loca.lt", "http://localhost:3000", "http://localhost:3001"},
+		AllowedOrigins: []string{"https://*.loca.lt"},
 		AllowedMethods: []string{
 			http.MethodGet,
 			http.MethodOptions,

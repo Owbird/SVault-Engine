@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/Owbird/SVault-Engine/internal/config"
 	"github.com/Owbird/SVault-Engine/internal/utils"
@@ -49,13 +50,20 @@ type IndexHTML struct {
 
 var tmpl *template.Template
 
-func NewHandlers(logCh chan models.ServerLog, dir string, serverConfig *config.ServerConfig) *Handlers {
+func getCwd() string {
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
 		log.Fatalln("Failed to get templates dir")
 	}
 
 	cwd := filepath.Dir(filename)
+
+	return cwd
+}
+
+func NewHandlers(logCh chan models.ServerLog, dir string, serverConfig *config.ServerConfig) *Handlers {
+	cwd := getCwd()
+
 	tpl, err := template.ParseGlob(filepath.Join(cwd, "templates/*.html"))
 	if err != nil {
 		log.Fatal(err)
@@ -214,4 +222,21 @@ func (h *Handlers) GetFilesHandler(w http.ResponseWriter, r *http.Request) {
 			AllowUploads: h.serverConfig.GetAllowUploads(),
 		},
 	})
+}
+
+func (h *Handlers) GetAssets(w http.ResponseWriter, r *http.Request) {
+	cwd := getCwd()
+
+	path := r.URL.Path
+	data, err := os.ReadFile(filepath.Join(cwd, "templates", path))
+	if err != nil {
+		fmt.Print(err)
+	}
+	if strings.HasSuffix(path, "js") {
+		w.Header().Set("Content-Type", "text/javascript")
+	}
+	_, err = w.Write(data)
+	if err != nil {
+		fmt.Print(err)
+	}
 }
