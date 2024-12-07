@@ -54,7 +54,9 @@ var receiveCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("Failed to get 'code' flag: %v", err)
 		}
-		server.Receive(code)
+		if err := server.Receive(code); err != nil {
+			log.Fatalf("Failed to receive file: %v", err)
+		}
 	},
 }
 

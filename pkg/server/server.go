@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 
@@ -223,7 +224,7 @@ func (s *Server) Share(file string, callbacks ShareCallBacks) {
 }
 
 // Receive file from device through wormhole
-// TODO: Support output dir
+// Saves file to the svault dir in the Downloads directory
 func (s *Server) Receive(code string) error {
 	var c wormhole.Client
 
@@ -233,14 +234,31 @@ func (s *Server) Receive(code string) error {
 		return err
 	}
 
-	_, err = io.Copy(os.Stdout, fileInfo)
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to determine home directory: %w", err)
+	}
+	downloadsDir := filepath.Join(homeDir, "Downloads", "svault")
+
+	if err := os.MkdirAll(downloadsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create svault directory: %w", err)
+	}
+
+	destFilePath := filepath.Join(downloadsDir, filepath.Base(fileInfo.Name))
+	destFile, err := os.Create(destFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, fileInfo)
+	if err != nil {
+		return fmt.Errorf("failed to save file: %w", err)
 	}
 
 	sendNotification(models.Notification{
 		Title: "File received",
-		Body:  fmt.Sprintf("File %v received", fileInfo.Name),
+		Body:  fmt.Sprintf("File %v received and saved to %v", filepath.Base(fileInfo.Name), destFilePath),
 	})
 
 	return nil
