@@ -48,19 +48,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
     formData.append("uploadDir", uploadDir);
 
-    uploadStatus.textContent = "Uploading...";
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
 
-    try {
-      await fetch("/upload", {
-        mode: "no-cors",
-        method: "POST",
-        body: formData,
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = (event.loaded / event.total) * 100;
+          uploadStatus.textContent = `Uploading: ${percentComplete.toFixed(2)}%`;
+        }
       });
-      uploadStatus.textContent = "Upload complete!";
-      window.location.reload();
-    } catch (error) {
-      uploadStatus.textContent = "Error uploading files.";
-    }
+
+      xhr.addEventListener("load", () => {
+        if (xhr.status === 200) {
+          uploadStatus.textContent = "Upload complete!";
+          window.location.reload();
+          resolve();
+        } else {
+          uploadStatus.textContent = "Error uploading files.";
+          reject(new Error("Upload failed"));
+        }
+      });
+
+      xhr.addEventListener("error", () => {
+        uploadStatus.textContent = "Network error during upload.";
+        reject(new Error("Network error"));
+      });
+
+      xhr.open("POST", "/upload", true);
+      xhr.send(formData);
+    });
   };
 
   dropArea.addEventListener("dragover", (e) => {
