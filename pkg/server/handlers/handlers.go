@@ -91,51 +91,54 @@ func (h *Handlers) GetFileUpload(w http.ResponseWriter, r *http.Request) {
 		Type:    models.API_LOG,
 	}
 
-	if err := r.ParseMultipartForm(100 << 20); err != nil {
+	reader, err := r.MultipartReader()
+	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	files := r.MultipartForm.File["file"]
-
 	uploadDir := r.FormValue("uploadDir")
 
-	for _, fileHeader := range files {
-		file, err := fileHeader.Open()
+	for {
+		part, err := reader.NextPart()
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
 			log.Println(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer file.Close()
 
-		uploadDir := filepath.Join(h.dir, uploadDir, fileHeader.Filename)
+		// Handle file parts only
+		if part.FileName() != "" {
+			filePath := filepath.Join(h.dir, uploadDir, part.FileName())
 
-		dst, err := os.Create(uploadDir)
-		if err != nil {
-			log.Println(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			dst, err := os.Create(filePath)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			defer dst.Close()
+
+			if _, err := io.Copy(dst, part); err != nil {
+				log.Println(err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			h.logCh <- models.ServerLog{
+				Message: fmt.Sprintf("File received at %v", filePath),
+				Type:    models.API_LOG,
+			}
+
+			h.notifConfig.SendNotification(models.Notification{
+				Title: "File received",
+				Body:  fmt.Sprintf("File %v received", part.FileName()),
+			})
 		}
-		defer dst.Close()
-
-		if _, err := io.Copy(dst, file); err != nil {
-			log.Println(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		h.logCh <- models.ServerLog{
-			Message: fmt.Sprintf("File received at %v", uploadDir),
-			Type:    models.API_LOG,
-		}
-
-		h.notifConfig.SendNotification(models.Notification{
-			Title: "File received",
-			Body:  fmt.Sprintf("File %v received", fileHeader.Filename),
-		})
-
 	}
 
 	return
