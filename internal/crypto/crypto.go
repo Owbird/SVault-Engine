@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"fmt"
 	"io"
 )
 
@@ -43,4 +44,30 @@ func (c *Crypto) Encrypt(buffer, key []byte) ([]byte, error) {
 	}
 
 	return gcm.Seal(nonce, nonce, buffer, nil), nil
+}
+
+func (c *Crypto) Decrypt(encrypted, key []byte) ([]byte, error) {
+	ciph, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(ciph)
+	if err != nil {
+		return nil, err
+	}
+
+	nonceSize := gcm.NonceSize()
+	if len(encrypted) < nonceSize {
+		return nil, fmt.Errorf("invalid encrypted data size")
+	}
+
+	nonce, ciphertext := encrypted[:nonceSize], encrypted[nonceSize:]
+
+	originalData, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return originalData, nil
 }

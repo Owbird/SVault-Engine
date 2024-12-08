@@ -3,6 +3,7 @@
 package filesystem
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -10,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/Owbird/SVault-Engine/internal/crypto"
 	"github.com/Owbird/SVault-Engine/internal/database"
 	"github.com/winfsp/cgofuse/fuse"
 )
@@ -17,6 +19,9 @@ import (
 type SVFileSystem struct {
 	fuse.FileSystemBase
 	db *database.Database
+
+	vault    string
+	password string
 }
 
 func isDir(path string) bool {
@@ -31,6 +36,35 @@ func isDir(path string) bool {
 	return len(paths[1:]) == 1
 }
 
+func (svfs *SVFileSystem) Read(path string, buff []byte, ofst int64, fh uint64) int {
+	log.Printf("Read called on %v, offset: %v, buffer size: %v", path, ofst, len(buff))
+
+	file := filepath.Base(path)
+
+	akshualFile, err := svfs.db.GetVaultFile(svfs.vault, file)
+	if err != nil {
+		return -fuse.ENOENT
+	}
+
+	vaultKey, err := svfs.db.GetVaultKey(svfs.vault, svfs.password)
+	if err != nil {
+		return -fuse.ENOENT
+	}
+
+	crypFunc := crypto.NewCrypto()
+	decryptedData, err := crypFunc.Decrypt(akshualFile.Data, vaultKey)
+	if err != nil {
+		return -fuse.ENOENT
+	}
+
+	if ofst >= int64(len(decryptedData)) {
+		return 0 // EOF
+	}
+
+	newBuff := copy(buff, decryptedData[ofst:])
+	return newBuff
+}
+
 func (svfs *SVFileSystem) Readdir(path string,
 	fill func(name string, stat *fuse.Stat_t, ofst int64) bool,
 	ofst int64,
@@ -41,36 +75,17 @@ func (svfs *SVFileSystem) Readdir(path string,
 	fill(".", nil, 0)
 	fill("..", nil, 0)
 
-	if path == "/" {
-		vaults, err := svfs.db.ListVaults()
-		if err != nil {
-			return -fuse.ENOENT
-		}
-
-		for _, vault := range vaults {
-			fill(vault.Name, &fuse.Stat_t{
-				Mtim: fuse.NewTimespec(vault.CreatedAt),
-			}, 0)
-		}
+	files, err := svfs.db.ListVaultFiles(svfs.vault)
+	if err != nil {
+		return -fuse.ENOENT
 	}
 
-	if isDir(path) && path != "/" {
-
-		vault := filepath.Base(path)
-
-		files, err := svfs.db.ListVaultFiles(vault)
-		if err != nil {
-			return -fuse.ENOENT
-		}
-
-		for _, file := range files {
-			fill(filepath.Base(file.Name), &fuse.Stat_t{
-				Size: file.Size,
-				Mode: file.Mode,
-				Mtim: fuse.NewTimespec(file.ModTime),
-			}, 0)
-		}
-
+	for _, file := range files {
+		fill(filepath.Base(file.Name), &fuse.Stat_t{
+			Size: file.Size,
+			Mode: file.Mode,
+			Mtim: fuse.NewTimespec(file.ModTime),
+		}, 0)
 	}
 
 	return 0
@@ -79,18 +94,29 @@ func (svfs *SVFileSystem) Readdir(path string,
 func (svfs *SVFileSystem) Getattr(path string, stat *fuse.Stat_t, fh uint64) int {
 	log.Printf("Getattr called on %v, is dir: %v ", path, isDir(path))
 
-	if isDir(path) {
+	if isDir(path) && path == "/" {
 		stat.Mode = fuse.S_IFDIR
-	} else {
-		stat.Mode = fuse.S_IFREG
+		return 0
 	}
+
+	stat.Mode = fuse.S_IFREG
+
+	file := filepath.Base(path)
+
+	akshualFile, err := svfs.db.GetVaultFile(svfs.vault, file)
+	if err != nil {
+		return -fuse.ENOENT
+	}
+
+	stat.Size = akshualFile.Size
+	stat.Mtim = fuse.NewTimespec(akshualFile.ModTime)
 
 	return 0
 }
 
 // Mount mounts the vfs with in a temp directory
-func Mount() {
-	bankDir, err := os.MkdirTemp(os.TempDir(), "svault-")
+func Mount(vault, password string) {
+	bankDir, err := os.MkdirTemp(os.TempDir(), fmt.Sprintf("svault-%s-", vault))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -100,7 +126,9 @@ func Mount() {
 	exec.Command("xdg-open", bankDir).Run()
 
 	fs := &SVFileSystem{
-		db: database.NewDatabase(),
+		db:       database.NewDatabase(),
+		vault:    vault,
+		password: password,
 	}
 
 	host := fuse.NewFileSystemHost(fs)

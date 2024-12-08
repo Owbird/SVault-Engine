@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/Owbird/SVault-Engine/pkg/filesystem"
 	"github.com/Owbird/SVault-Engine/pkg/vault"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
@@ -146,6 +147,30 @@ var fileCmd = &cobra.Command{
 	},
 }
 
+var mountCmd = &cobra.Command{
+	Use:   "mount",
+	Short: "Mount A vault in the file explorer",
+	Long:  `Mount A vault in the file explorer`,
+	Run: func(cmd *cobra.Command, args []string) {
+		v := vault.NewVault()
+		vault, err := cmd.Flags().GetString("vault")
+		if err != nil {
+			log.Fatalf("Failed to get 'vault' flag: %v", err)
+		}
+
+		password, err := cmd.Flags().GetString("password")
+		if err != nil {
+			log.Fatalf("Failed to get 'password' flag: %v", err)
+		}
+
+		if err := v.Auth(vault, password); err != nil {
+			log.Fatalf("Failed to authenticate vault: %v", err)
+		}
+
+		filesystem.Mount(vault, password)
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(vaultCmd)
 
@@ -153,6 +178,7 @@ func init() {
 	vaultCmd.AddCommand(rmCmd)
 	vaultCmd.AddCommand(listCmd)
 	vaultCmd.AddCommand(fileCmd)
+	vaultCmd.AddCommand(mountCmd)
 
 	createCmd.Flags().StringP("name", "n", "", "Name of new vault")
 	createCmd.Flags().StringP("password", "p", "", "Password of the vault")
@@ -174,4 +200,10 @@ func init() {
 
 	fileCmd.MarkFlagRequired("vault")
 	fileCmd.MarkFlagRequired("password")
+
+	mountCmd.Flags().StringP("password", "p", "", "Password of the vault")
+	mountCmd.Flags().StringP("vault", "v", "", "Name of the vault")
+
+	mountCmd.MarkFlagRequired("vault")
+	mountCmd.MarkFlagRequired("password")
 }

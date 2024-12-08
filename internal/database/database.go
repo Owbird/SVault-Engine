@@ -2,7 +2,10 @@ package database
 
 import (
 	"errors"
+	"fmt"
 	"log"
+	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/Owbird/SVault-Engine/internal/utils"
@@ -10,7 +13,9 @@ import (
 	c "github.com/ostafen/clover"
 )
 
-type Database struct{}
+type Database struct {
+	mu sync.Mutex
+}
 
 func NewDatabase() *Database {
 	db := OpenDb()
@@ -45,6 +50,9 @@ func OpenDb() *c.DB {
 }
 
 func (db *Database) SaveVault(vault models.Vault) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	store := OpenDb()
 	defer store.Close()
 
@@ -62,6 +70,9 @@ func (db *Database) SaveVault(vault models.Vault) error {
 }
 
 func (db *Database) ListVaults() ([]models.Vault, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	store := OpenDb()
 	defer store.Close()
 
@@ -84,6 +95,9 @@ func (db *Database) ListVaults() ([]models.Vault, error) {
 }
 
 func (db *Database) GetVault(vault string) (models.Vault, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	query := c.Field("Name").Eq(vault)
 
 	store := OpenDb()
@@ -106,9 +120,12 @@ func (db *Database) GetVault(vault string) (models.Vault, error) {
 }
 
 func (db *Database) AddToVault(file models.File) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	doc := c.NewDocument()
 	doc.Set("Vault", file.Vault)
-	doc.Set("Name", file.Name)
+	doc.Set("Name", filepath.Base(file.Name))
 	doc.Set("Data", file.Data)
 	doc.Set("Size", file.Size)
 	doc.Set("Mode", file.Mode)
@@ -126,6 +143,9 @@ func (db *Database) AddToVault(file models.File) error {
 }
 
 func (db *Database) ListVaultFiles(vault string) ([]models.File, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	query := c.Field("Vault").Eq(vault)
 
 	store := OpenDb()
@@ -150,7 +170,35 @@ func (db *Database) ListVaultFiles(vault string) ([]models.File, error) {
 	return files, nil
 }
 
+func (db *Database) GetVaultFile(vault, file string) (models.File, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	query := c.Field("Vault").Eq(vault).And(c.Field("Name").Eq(file))
+
+	store := OpenDb()
+	defer store.Close()
+
+	doc, err := store.Query("files").Where(query).FindFirst()
+	if err != nil {
+		return models.File{}, err
+	}
+
+	if doc == nil {
+		return models.File{}, fmt.Errorf("file not found")
+	}
+
+	var foundFile models.File
+
+	doc.Unmarshal(&foundFile)
+
+	return foundFile, nil
+}
+
 func (db *Database) SaveVaultKey(key []byte, password, vault string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	doc := c.NewDocument()
 	doc.Set("Password", password)
 	doc.Set("VaultKey", key)
@@ -168,6 +216,9 @@ func (db *Database) SaveVaultKey(key []byte, password, vault string) error {
 }
 
 func (db *Database) GetVaultKey(vault, password string) ([]byte, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	query := c.Field("Vault").Eq(vault).And(c.Field("Password").Eq(password))
 
 	store := OpenDb()
@@ -192,6 +243,9 @@ func (db *Database) GetVaultKey(vault, password string) ([]byte, error) {
 }
 
 func (db *Database) DeleteFromVault(name, vault string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	query := c.Field("Vault").Eq(vault).And(c.Field("Name").Eq(name))
 
 	store := OpenDb()
@@ -206,6 +260,9 @@ func (db *Database) DeleteFromVault(name, vault string) error {
 }
 
 func (db *Database) DeleteVault(vault string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	query := c.Field("Name").Eq(vault)
 
 	store := OpenDb()
