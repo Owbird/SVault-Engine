@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -59,15 +60,21 @@ func NewDatabase() *Database {
 }
 
 func (db *Database) SaveVault(vault models.Vault) error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	existingVault, err := db.GetVault(vault.Name)
+	if err != nil && err.Error() != "vault not found" {
+		return err
+	}
+
+	if existingVault.Name != "" {
+		return fmt.Errorf("vault already exists")
+	}
 
 	doc := c.NewDocument()
-	doc.Set("Name", vault.Name)
+	doc.Set("Name", strings.ToLower(vault.Name))
 	doc.Set("Password", crypFunc.Hash(vault.Password))
 	doc.Set("CreatedAt", time.Now())
 
-	_, err := db.InsertOne("vaults", doc)
+	_, err = db.InsertOne("vaults", doc)
 	if err != nil {
 		return err
 	}
@@ -101,7 +108,7 @@ func (db *Database) GetVault(vault string) (models.Vault, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	query := c.Field("Name").Eq(vault)
+	query := c.Field("Name").Eq(strings.ToLower(vault))
 
 	doc, err := db.Query("vaults").Where(query).FindFirst()
 	if err != nil {

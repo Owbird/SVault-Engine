@@ -33,7 +33,9 @@ var createCmd = &cobra.Command{
 		}
 
 		vault := vault.NewVault()
-		vault.Create(name, password)
+		if err := vault.Create(name, password); err != nil {
+			log.Fatalf("Failed to create vault: %v", err)
+		}
 	},
 }
 
