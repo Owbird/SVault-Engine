@@ -15,32 +15,20 @@ import (
 )
 
 type Database struct {
+	*c.DB
 	mu sync.Mutex
 }
 
-var crypFunc = crypto.NewCrypto()
+var (
+	crypFunc = crypto.NewCrypto()
+	instance *Database
+)
 
 func NewDatabase() *Database {
-	db := OpenDb()
-	defer db.Close()
-
-	collections := []string{"vaults", "vault_keys", "files"}
-
-	for _, collection := range collections {
-		err := db.CreateCollection(collection)
-		if err != nil {
-			if !errors.Is(c.ErrCollectionExist, err) {
-				log.Fatalln(err)
-			}
-		}
+	if instance != nil {
+		return instance
 	}
 
-	return &Database{
-		mu: sync.Mutex{},
-	}
-}
-
-func OpenDb() *c.DB {
 	userDir, err := utils.GetSVaultDir()
 	if err != nil {
 		log.Fatalln(err)
@@ -51,22 +39,35 @@ func OpenDb() *c.DB {
 		log.Fatalln(err)
 	}
 
-	return store
+	collections := []string{"vaults", "vault_keys", "files"}
+
+	for _, collection := range collections {
+		err := store.CreateCollection(collection)
+		if err != nil {
+			if !errors.Is(c.ErrCollectionExist, err) {
+				log.Fatalln(err)
+			}
+		}
+	}
+
+	instance = &Database{
+		mu: sync.Mutex{},
+		DB: store,
+	}
+
+	return instance
 }
 
 func (db *Database) SaveVault(vault models.Vault) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	store := OpenDb()
-	defer store.Close()
-
 	doc := c.NewDocument()
 	doc.Set("Name", vault.Name)
 	doc.Set("Password", crypFunc.Hash(vault.Password))
 	doc.Set("CreatedAt", time.Now())
 
-	_, err := store.InsertOne("vaults", doc)
+	_, err := db.InsertOne("vaults", doc)
 	if err != nil {
 		return err
 	}
@@ -78,10 +79,7 @@ func (db *Database) ListVaults() ([]models.Vault, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	store := OpenDb()
-	defer store.Close()
-
-	docs, err := store.Query("vaults").FindAll()
+	docs, err := db.Query("vaults").FindAll()
 	if err != nil {
 		return []models.Vault{}, err
 	}
@@ -105,10 +103,7 @@ func (db *Database) GetVault(vault string) (models.Vault, error) {
 
 	query := c.Field("Name").Eq(vault)
 
-	store := OpenDb()
-	defer store.Close()
-
-	doc, err := store.Query("vaults").Where(query).FindFirst()
+	doc, err := db.Query("vaults").Where(query).FindFirst()
 	if err != nil {
 		return models.Vault{}, err
 	}
@@ -136,10 +131,7 @@ func (db *Database) AddToVault(file models.File) error {
 	doc.Set("Mode", file.Mode)
 	doc.Set("ModTime", file.ModTime)
 
-	store := OpenDb()
-	defer store.Close()
-
-	_, err := store.InsertOne("files", doc)
+	_, err := db.InsertOne("files", doc)
 	if err != nil {
 		return err
 	}
@@ -153,10 +145,7 @@ func (db *Database) ListVaultFiles(vault string) ([]models.File, error) {
 
 	query := c.Field("Vault").Eq(vault)
 
-	store := OpenDb()
-	defer store.Close()
-
-	docs, err := store.Query("files").Where(query).FindAll()
+	docs, err := db.Query("files").Where(query).FindAll()
 	if err != nil {
 		return []models.File{}, err
 	}
@@ -181,10 +170,7 @@ func (db *Database) GetVaultFile(vault, file string) (models.File, error) {
 
 	query := c.Field("Vault").Eq(vault).And(c.Field("Name").Eq(file))
 
-	store := OpenDb()
-	defer store.Close()
-
-	doc, err := store.Query("files").Where(query).FindFirst()
+	doc, err := db.Query("files").Where(query).FindFirst()
 	if err != nil {
 		return models.File{}, err
 	}
@@ -209,10 +195,7 @@ func (db *Database) SaveVaultKey(key []byte, password, vault string) error {
 	doc.Set("VaultKey", key)
 	doc.Set("Vault", vault)
 
-	store := OpenDb()
-	defer store.Close()
-
-	_, err := store.InsertOne("vault_keys", doc)
+	_, err := db.InsertOne("vault_keys", doc)
 	if err != nil {
 		return err
 	}
@@ -226,10 +209,7 @@ func (db *Database) GetVaultKey(vault, password string) ([]byte, error) {
 
 	query := c.Field("Vault").Eq(vault)
 
-	store := OpenDb()
-	defer store.Close()
-
-	doc, err := store.Query("vault_keys").Where(query).FindFirst()
+	doc, err := db.Query("vault_keys").Where(query).FindFirst()
 	if err != nil {
 		return []byte{}, err
 	}
@@ -253,10 +233,7 @@ func (db *Database) DeleteFromVault(name, vault string) error {
 
 	query := c.Field("Vault").Eq(vault).And(c.Field("Name").Eq(name))
 
-	store := OpenDb()
-	defer store.Close()
-
-	err := store.Query("files").Where(query).Delete()
+	err := db.Query("files").Where(query).Delete()
 	if err != nil {
 		return err
 	}
@@ -270,10 +247,7 @@ func (db *Database) DeleteVault(vault string) error {
 
 	query := c.Field("Name").Eq(vault)
 
-	store := OpenDb()
-	defer store.Close()
-
-	err := store.Query("vaults").Where(query).Delete()
+	err := db.Query("vaults").Where(query).Delete()
 	if err != nil {
 		return err
 	}
