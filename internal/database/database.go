@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Owbird/SVault-Engine/internal/crypto"
 	"github.com/Owbird/SVault-Engine/internal/utils"
 	"github.com/Owbird/SVault-Engine/pkg/models"
 	c "github.com/ostafen/clover"
@@ -16,6 +17,8 @@ import (
 type Database struct {
 	mu sync.Mutex
 }
+
+var crypFunc = crypto.NewCrypto()
 
 func NewDatabase() *Database {
 	db := OpenDb()
@@ -32,7 +35,9 @@ func NewDatabase() *Database {
 		}
 	}
 
-	return &Database{}
+	return &Database{
+		mu: sync.Mutex{},
+	}
 }
 
 func OpenDb() *c.DB {
@@ -58,7 +63,7 @@ func (db *Database) SaveVault(vault models.Vault) error {
 
 	doc := c.NewDocument()
 	doc.Set("Name", vault.Name)
-	doc.Set("Password", vault.Password)
+	doc.Set("Password", crypFunc.Hash(vault.Password))
 	doc.Set("CreatedAt", time.Now())
 
 	_, err := store.InsertOne("vaults", doc)
@@ -200,7 +205,7 @@ func (db *Database) SaveVaultKey(key []byte, password, vault string) error {
 	defer db.mu.Unlock()
 
 	doc := c.NewDocument()
-	doc.Set("Password", password)
+	doc.Set("Password", crypFunc.Hash(password))
 	doc.Set("VaultKey", key)
 	doc.Set("Vault", vault)
 
@@ -219,7 +224,7 @@ func (db *Database) GetVaultKey(vault, password string) ([]byte, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	query := c.Field("Vault").Eq(vault).And(c.Field("Password").Eq(password))
+	query := c.Field("Vault").Eq(vault)
 
 	store := OpenDb()
 	defer store.Close()

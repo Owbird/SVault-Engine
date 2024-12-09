@@ -6,6 +6,8 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Crypto struct{}
@@ -24,6 +26,17 @@ func (c *Crypto) GenSecretKey() []byte {
 		return nil
 	}
 	return key
+}
+
+func (c *Crypto) Hash(text string) string {
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(text), bcrypt.DefaultCost)
+
+	return string(hashedPassword)
+}
+
+func (c *Crypto) VerifyHash(text, hashedText string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hashedText), []byte(text))
+	return err == nil
 }
 
 func (c *Crypto) Encrypt(buffer, key []byte) ([]byte, error) {

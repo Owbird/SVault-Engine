@@ -52,6 +52,8 @@ func (v *Vault) List() ([]models.Vault, error) {
 // Auth authorizes vault access based on the
 // name of the vault and password
 func (v *Vault) Auth(name, pwd string) error {
+	crypto := crypto.NewCrypto()
+
 	vault, err := v.db.GetVault(name)
 	if err != nil {
 		return err
@@ -61,7 +63,7 @@ func (v *Vault) Auth(name, pwd string) error {
 		return fmt.Errorf("'%v' vault does not exist", name)
 	}
 
-	if vault.Password != pwd {
+	if !crypto.VerifyHash(pwd, vault.Password) {
 		return fmt.Errorf("passwords do not match")
 	}
 
