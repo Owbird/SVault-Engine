@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/Owbird/SVault-Engine/internal/crypto"
 	"github.com/Owbird/SVault-Engine/internal/database"
@@ -116,14 +117,16 @@ func (svfs *SVFileSystem) Getattr(path string, stat *fuse.Stat_t, fh uint64) int
 
 // Mount mounts the vfs with in a temp directory
 func Mount(vault, password string) {
-	bankDir, err := os.MkdirTemp(os.TempDir(), fmt.Sprintf("svault-%s-", vault))
-	if err != nil {
-		log.Fatal(err)
+	vaultDir := filepath.Join(os.TempDir(), fmt.Sprintf("svault-%s-%s", vault, time.Now().Format("20060102150405")))
+
+	if runtime.GOOS != "windows" {
+		err := os.MkdirAll(vaultDir, 0755)
+		if err != nil {
+			log.Fatalln(err)
+		}
 	}
 
-	log.Println("Mounting bank dir", bankDir)
-
-	exec.Command("xdg-open", bankDir).Run()
+	log.Println("Mounting bank dir", vaultDir)
 
 	fs := &SVFileSystem{
 		db:       database.NewDatabase(),
@@ -135,5 +138,20 @@ func Mount(vault, password string) {
 
 	defer host.Unmount()
 
-	host.Mount(bankDir, []string{})
+	var command string
+	switch runtime.GOOS {
+	case "darwin":
+		command = "open"
+	case "windows":
+		command = "explorer"
+	case "linux":
+		command = "xdg-open"
+	default:
+		return
+	}
+
+	cmd := exec.Command(command, vaultDir)
+	cmd.Run()
+
+	host.Mount(vaultDir, []string{})
 }
