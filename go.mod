@@ -4,8 +4,8 @@ go 1.22.1
 
 require (
 	github.com/atotto/clipboard v0.1.4
-	github.com/google/uuid v1.4.0
 	github.com/jedib0t/go-pretty/v6 v6.5.9
+	github.com/localtunnel/go-localtunnel v0.0.0-20170326223115-8a804488f275
 	github.com/ostafen/clover v1.2.0
 	github.com/psanford/wormhole-william v1.0.7
 	github.com/rs/cors v1.11.0
@@ -16,7 +16,6 @@ require (
 
 require (
 	github.com/deckarep/gosx-notifier v0.0.0-20180201035817-e127226297fb // indirect
-	github.com/localtunnel/go-localtunnel v0.0.0-20170326223115-8a804488f275 // indirect
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d // indirect
 	gopkg.in/toast.v1 v1.0.0-20180812000517-0a84660828b2 // indirect
 )
@@ -55,7 +54,7 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
-	golang.org/x/crypto v0.21.0 // indirect
+	golang.org/x/crypto v0.21.0
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
 	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
